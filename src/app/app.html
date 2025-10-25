@@ -1,0 +1,6 @@
+@if (currentView() === 'login') {
+  <app-login></app-login>
+} @else if (currentView() === 'register') {
+  <app-register></app-register>
+}
+<router-outlet />
