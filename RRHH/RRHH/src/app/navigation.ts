@@ -1,6 +1,6 @@
 import { Injectable, signal } from '@angular/core';
 
-export type ViewType = 'login' | 'register' | 'menu';
+export type ViewType = 'login' | 'register';
 
 @Injectable({
   providedIn: 'root'
@@ -18,9 +18,5 @@ export class Navigation {
 
   showRegister() {
     this.currentView.set('register');
-  }
-
-  showMenu() {
-    this.currentView.set('menu');
   }
 }
