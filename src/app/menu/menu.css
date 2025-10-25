@@ -1,0 +1,275 @@
+/* Genesis Theme - Menubar Principal */
+::ng-deep .p-menubar {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+  border: none !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08) !important;
+}
+
+::ng-deep .p-menubar .p-menubar-root-list {
+  padding: 0 24px;
+  gap: 4px;
+}
+
+::ng-deep .p-menubar .p-menuitem {
+  position: relative;
+}
+
+::ng-deep .p-menubar .p-menuitem-link {
+  color: rgba(255, 255, 255, 0.95) !important;
+  padding: 18px 24px !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 8px !important;
+  font-weight: 500;
+  position: relative;
+  overflow: hidden;
+}
+
+::ng-deep .p-menubar .p-menuitem-link::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(255, 255, 255, 0.1);
+  transform: translateX(-100%);
+  transition: transform 0.3s ease;
+}
+
+::ng-deep .p-menubar .p-menuitem-link:hover::before {
+  transform: translateX(0);
+}
+
+::ng-deep .p-menubar .p-menuitem-link:hover {
+  background: rgba(255, 255, 255, 0.15) !important;
+  transform: translateY(-2px);
+}
+
+::ng-deep .p-menubar .p-menuitem-link:focus {
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.3) !important;
+  outline: none;
+}
+
+::ng-deep .p-menubar .p-menuitem-icon {
+  color: rgba(255, 255, 255, 0.95) !important;
+  margin-right: 10px;
+  font-size: 1.1rem;
+}
+
+::ng-deep .p-menubar .p-menuitem-text {
+  color: rgba(255, 255, 255, 0.95) !important;
+  font-weight: 500;
+  font-size: 14px;
+  letter-spacing: 0.3px;
+}
+
+::ng-deep .p-menubar .p-submenu-icon {
+  color: rgba(255, 255, 255, 0.95) !important;
+  margin-left: 8px;
+}
+
+/* Genesis Theme - Submenú Desplegable */
+::ng-deep .p-menu {
+  background: white !important;
+  border: none !important;
+  border-radius: 12px !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12) !important;
+  padding: 8px !important;
+  min-width: 220px;
+  margin-top: 8px !important;
+}
+
+::ng-deep .p-menu .p-menuitem {
+  margin: 2px 0;
+}
+
+::ng-deep .p-menu .p-menuitem-link {
+  color: #495057 !important;
+  padding: 12px 16px !important;
+  border-radius: 8px !important;
+  transition: all 0.2s ease;
+  font-weight: 500;
+}
+
+::ng-deep .p-menu .p-menuitem-link:hover {
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%) !important;
+  transform: translateX(4px);
+}
+
+::ng-deep .p-menu .p-menuitem-icon {
+  color: #667eea !important;
+  margin-right: 12px;
+  font-size: 1rem;
+}
+
+::ng-deep .p-menu .p-menuitem-text {
+  color: #495057 !important;
+  font-weight: 500;
+  font-size: 14px;
+}
+
+::ng-deep .p-menu .p-menu-separator {
+  border-top: 1px solid #e9ecef !important;
+  margin: 8px 0 !important;
+}
+
+/* Genesis Theme - Contenedor Principal */
+.menu-container {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+}
+
+/* Genesis Theme - Área de Contenido */
+.content-area {
+  padding: 48px 32px;
+  max-width: 1280px;
+  margin: 0 auto;
+  animation: fadeIn 0.6s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.welcome-section {
+  text-align: center;
+  margin-bottom: 56px;
+  position: relative;
+}
+
+.welcome-section::after {
+  content: '';
+  position: absolute;
+  bottom: -24px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 80px;
+  height: 4px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 2px;
+}
+
+.welcome-section h1 {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-size: 42px;
+  font-weight: 700;
+  margin-bottom: 12px;
+  letter-spacing: -0.5px;
+}
+
+.welcome-section > p {
+  color: #6c757d;
+  font-size: 18px;
+  font-weight: 400;
+  margin-bottom: 40px;
+  letter-spacing: 0.2px;
+}
+
+/* Genesis Theme - Tarjetas de Información */
+.info-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 28px;
+  margin-top: 48px;
+}
+
+.info-card {
+  background: white;
+  border-radius: 16px;
+  padding: 40px 32px;
+  text-align: center;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.info-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 4px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  transform: scaleX(0);
+  transition: transform 0.4s ease;
+}
+
+.info-card:hover::before {
+  transform: scaleX(1);
+}
+
+.info-card:hover {
+  box-shadow: 0 12px 40px rgba(102, 126, 234, 0.25);
+  transform: translateY(-8px);
+  border-color: rgba(102, 126, 234, 0.2);
+}
+
+.info-card i {
+  font-size: 56px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 20px;
+  display: block;
+  transition: transform 0.4s ease;
+}
+
+.info-card:hover i {
+  transform: scale(1.1) rotate(5deg);
+}
+
+.info-card h3 {
+  color: #2d3748;
+  font-size: 20px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  letter-spacing: -0.2px;
+}
+
+.info-card p {
+  color: #718096;
+  font-size: 15px;
+  line-height: 1.6;
+  font-weight: 400;
+}
+
+/* Genesis Theme - Responsive */
+@media (max-width: 768px) {
+  .content-area {
+    padding: 32px 20px;
+  }
+  
+  .welcome-section h1 {
+    font-size: 32px;
+  }
+  
+  .welcome-section > p {
+    font-size: 16px;
+  }
+  
+  .info-cards {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+  
+  .info-card {
+    padding: 32px 24px;
+  }
+}
