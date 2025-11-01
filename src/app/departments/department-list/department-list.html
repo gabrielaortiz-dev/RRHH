@@ -1,0 +1,126 @@
+<div class="department-list-container">
+  <p-toast />
+  <p-confirmDialog />
+
+  <div class="page-header">
+    <div class="header-content">
+      <h1><i class="pi pi-building"></i> Gestión de Departamentos</h1>
+      <p>Administra los departamentos de tu organización</p>
+    </div>
+    <a routerLink="/departamentos/nuevo" class="add-button">
+      <i class="pi pi-plus"></i>
+      Agregar Departamento
+    </a>
+  </div>
+
+  <div class="table-card">
+    <p-table 
+      #dt
+      [value]="departments()" 
+      [paginator]="true" 
+      [rows]="10"
+      [showCurrentPageReport]="true"
+      currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} departamentos"
+      [rowsPerPageOptions]="[5, 10, 25]"
+      [globalFilterFields]="['nombre', 'descripcion', 'gerente']"
+      styleClass="p-datatable-gridlines p-datatable-striped">
+      
+      <ng-template pTemplate="caption">
+        <div class="table-header">
+          <span class="p-input-icon-left">
+            <i class="pi pi-search"></i>
+            <input 
+              pInputText 
+              type="text" 
+              (input)="dt.filterGlobal($any($event.target).value, 'contains')"
+              placeholder="Buscar departamento..." 
+              class="search-input" />
+          </span>
+          <span class="total-badge">
+            Total: {{ departments().length }} departamentos
+          </span>
+        </div>
+      </ng-template>
+
+      <ng-template pTemplate="header">
+        <tr>
+          <th pSortableColumn="id">ID <p-sortIcon field="id" /></th>
+          <th pSortableColumn="nombre">Nombre <p-sortIcon field="nombre" /></th>
+          <th pSortableColumn="descripcion">Descripción</th>
+          <th pSortableColumn="gerente">Gerente <p-sortIcon field="gerente" /></th>
+          <th pSortableColumn="numeroEmpleados">N° Empleados <p-sortIcon field="numeroEmpleados" /></th>
+          <th pSortableColumn="presupuesto">Presupuesto <p-sortIcon field="presupuesto" /></th>
+          <th pSortableColumn="fechaCreacion">Fecha Creación <p-sortIcon field="fechaCreacion" /></th>
+          <th pSortableColumn="estado">Estado <p-sortIcon field="estado" /></th>
+          <th>Acciones</th>
+        </tr>
+      </ng-template>
+
+      <ng-template pTemplate="body" let-department>
+        <tr>
+          <td>{{ department.id }}</td>
+          <td><strong>{{ department.nombre }}</strong></td>
+          <td>{{ department.descripcion }}</td>
+          <td>{{ department.gerente }}</td>
+          <td class="text-center">
+            <span class="employee-badge">
+              <i class="pi pi-users"></i>
+              {{ department.numeroEmpleados }}
+            </span>
+          </td>
+          <td class="budget-cell">{{ formatCurrency(department.presupuesto) }}</td>
+          <td>{{ formatDate(department.fechaCreacion) }}</td>
+          <td>
+            <p-tag 
+              [value]="department.estado" 
+              [severity]="getSeverity(department.estado)">
+            </p-tag>
+          </td>
+          <td>
+            <div class="action-buttons">
+              <button 
+                pButton 
+                icon="pi pi-eye" 
+                class="p-button-rounded p-button-info p-button-text"
+                pTooltip="Ver detalles"
+                tooltipPosition="top">
+              </button>
+              <button 
+                pButton 
+                icon="pi pi-pencil" 
+                class="p-button-rounded p-button-warning p-button-text"
+                pTooltip="Editar"
+                tooltipPosition="top">
+              </button>
+              <button 
+                pButton 
+                icon="pi pi-trash" 
+                class="p-button-rounded p-button-danger p-button-text"
+                (click)="deleteDepartment(department)"
+                pTooltip="Eliminar"
+                tooltipPosition="top">
+              </button>
+            </div>
+          </td>
+        </tr>
+      </ng-template>
+
+      <ng-template pTemplate="emptymessage">
+        <tr>
+          <td colspan="9" class="empty-message">
+            <div class="empty-state">
+              <i class="pi pi-building"></i>
+              <h3>No hay departamentos registrados</h3>
+              <p>Comienza agregando tu primer departamento</p>
+              <a routerLink="/departamentos/nuevo" class="add-first-button">
+                <i class="pi pi-plus"></i>
+                Agregar Primer Departamento
+              </a>
+            </div>
+          </td>
+        </tr>
+      </ng-template>
+    </p-table>
+  </div>
+</div>
+
