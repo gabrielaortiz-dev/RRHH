@@ -1,1 +1,312 @@
-/* You can add global styles to this file, and also import other style files */
+/* Importar fuente Inter */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+/* Importar estilos de PrimeNG v20 */
+@import 'primeicons/primeicons.css';
+
+/* Estilos globales - Genesis Theme */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  color: #2d3748;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 600;
+  color: #2d3748;
+  letter-spacing: -0.3px;
+}
+
+a {
+  color: #667eea;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+a:hover {
+  color: #764ba2;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+/* Genesis Theme - Scrollbar personalizado */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f3f5;
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 10px;
+  border: 2px solid #f1f3f5;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, #5568d3 0%, #6a3f8f 100%);
+}
+
+/* Genesis Theme - Animaciones globales */
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+/* Genesis Theme - Utilidades */
+.gradient-text {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ===============================================
+   FUENTE INTER - APLICACIÓN GLOBAL
+   =============================================== */
+
+/* Aplicar Inter a TODOS los elementos EXCEPTO iconos */
+*:not([class*="pi-"]):not(.pi), 
+*:not([class*="pi-"]):not(.pi)::before, 
+*:not([class*="pi-"]):not(.pi)::after {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif !important;
+}
+
+/* IMPORTANTE: Preservar TODOS los iconos de PrimeIcons */
+i[class*="pi"],
+i[class^="pi"],
+.pi,
+.pi::before,
+[class*="pi-"]::before,
+[class^="pi-"]::before {
+  font-family: 'primeicons' !important;
+  font-style: normal !important;
+  font-variant: normal !important;
+  text-transform: none !important;
+  line-height: 1 !important;
+  -webkit-font-smoothing: antialiased !important;
+  -moz-osx-font-smoothing: grayscale !important;
+}
+
+/* Inputs y formularios (no afecta iconos dentro de botones) */
+input:not([class*="pi-"]), 
+textarea:not([class*="pi-"]), 
+select:not([class*="pi-"]),
+button:not([class*="pi-"]) {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif !important;
+}
+
+/* PrimeNG Components - Forzar Inter en todos (excepto iconos) */
+.p-component:not(.pi):not([class*="pi-"]),
+.p-inputtext:not(.pi):not([class*="pi-"]),
+.p-button:not(.pi):not([class*="pi-"]),
+.p-dropdown:not(.pi):not([class*="pi-"]),
+.p-select:not(.pi):not([class*="pi-"]),
+.p-calendar:not(.pi):not([class*="pi-"]),
+.p-datepicker:not(.pi):not([class*="pi-"]),
+.p-inputnumber:not(.pi):not([class*="pi-"]),
+.p-textarea:not(.pi):not([class*="pi-"]),
+.p-datatable:not(.pi):not([class*="pi-"]),
+.p-card:not(.pi):not([class*="pi-"]),
+.p-menubar:not(.pi):not([class*="pi-"]),
+.p-menu:not(.pi):not([class*="pi-"]),
+.p-sidebar:not(.pi):not([class*="pi-"]),
+.p-dialog:not(.pi):not([class*="pi-"]),
+.p-toast:not(.pi):not([class*="pi-"]),
+.p-message:not(.pi):not([class*="pi-"]),
+.p-panel:not(.pi):not([class*="pi-"]),
+.p-accordion:not(.pi):not([class*="pi-"]),
+.p-tabview:not(.pi):not([class*="pi-"]),
+.p-chip:not(.pi):not([class*="pi-"]),
+.p-badge:not(.pi):not([class*="pi-"]),
+.p-tag:not(.pi):not([class*="pi-"]) {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif !important;
+}
+
+/* Asegurar que los iconos dentro de componentes PrimeNG se preserven */
+.p-button .pi,
+.p-button i[class*="pi-"],
+.p-menubar .pi,
+.p-menubar i[class*="pi-"],
+.p-menu .pi,
+.p-menu i[class*="pi-"],
+.p-datepicker .pi,
+.p-datepicker i[class*="pi-"],
+.p-select .pi,
+.p-select i[class*="pi-"],
+.p-dropdown .pi,
+.p-dropdown i[class*="pi-"] {
+  font-family: 'primeicons' !important;
+}
+
+/* PrimeNG Panel y Overlays */
+.p-select-overlay,
+.p-dropdown-panel,
+.p-calendar-panel,
+.p-datepicker-panel,
+.p-dialog,
+.p-sidebar,
+.p-menu-overlay,
+.p-tooltip {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif !important;
+}
+
+/* Tablas */
+.p-datatable table,
+.p-datatable th,
+.p-datatable td,
+table,
+th,
+td {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif !important;
+}
+
+/* Labels y spans (excepto iconos) */
+label:not([class*="pi-"]),
+span:not([class*="pi-"]),
+p:not([class*="pi-"]),
+div:not([class*="pi-"]),
+a:not([class*="pi-"]),
+li:not([class*="pi-"]) {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif !important;
+}
+
+/* Headers */
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif !important;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+}
+
+/* Asegurar que los números se vean bien tabulados */
+.numeric,
+.p-inputnumber,
+.currency,
+[type="number"] {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
+
+/* ===============================================
+   FIX: DatePicker No Transparente
+   =============================================== */
+
+/* Asegurar que el panel del datepicker tenga fondo sólido */
+::ng-deep .p-datepicker,
+::ng-deep .p-datepicker-panel,
+::ng-deep .p-calendar-panel {
+  background: white !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 12px !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12) !important;
+  opacity: 1 !important;
+}
+
+/* Header del calendario con fondo sólido */
+::ng-deep .p-datepicker-header,
+::ng-deep .p-datepicker .p-datepicker-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+  color: white !important;
+  border-radius: 12px 12px 0 0 !important;
+  padding: 1rem !important;
+}
+
+/* Cuerpo del calendario */
+::ng-deep .p-datepicker-calendar-container,
+::ng-deep .p-datepicker table {
+  background: white !important;
+}
+
+/* Días del calendario */
+::ng-deep .p-datepicker table td {
+  background: white !important;
+}
+
+::ng-deep .p-datepicker table td > span {
+  background: transparent !important;
+  border-radius: 8px !important;
+  transition: all 0.2s ease !important;
+}
+
+::ng-deep .p-datepicker table td > span:hover {
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.15) 0%, rgba(118, 75, 162, 0.15) 100%) !important;
+}
+
+/* Día seleccionado */
+::ng-deep .p-datepicker table td.p-datepicker-today > span {
+  background: rgba(102, 126, 234, 0.1) !important;
+  color: #667eea !important;
+  font-weight: 700 !important;
+}
+
+::ng-deep .p-datepicker table td.p-highlight > span {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+  color: white !important;
+  font-weight: 700 !important;
+}
+
+/* Botones del datepicker */
+::ng-deep .p-datepicker-header button {
+  color: white !important;
+}
+
+::ng-deep .p-datepicker-header button:hover {
+  background: rgba(255, 255, 255, 0.2) !important;
+}
+
+/* Selector de mes y año */
+::ng-deep .p-datepicker-title,
+::ng-deep .p-datepicker-month,
+::ng-deep .p-datepicker-year {
+  color: white !important;
+  font-weight: 600 !important;
+}
+
+/* Overlay del calendario (fondo) */
+::ng-deep .p-datepicker-mask,
+::ng-deep .p-component-overlay {
+  background: rgba(0, 0, 0, 0.4) !important;
+}
+
+/* Asegurar visibilidad del input del datepicker */
+::ng-deep .p-calendar .p-inputtext {
+  background: #fafafa !important;
+  border: 2px solid #e2e8f0 !important;
+}
+
+::ng-deep .p-calendar .p-inputtext:focus {
+  background: white !important;
+  border-color: #667eea !important;
+}

@@ -1,0 +1,67 @@
+<div class="profile-container">
+  <p-toast />
+
+  <div class="page-header">
+    <div class="header-content">
+      <h1><i class="pi pi-user"></i> Mi Perfil</h1>
+      <p>Gestiona tu información personal</p>
+    </div>
+  </div>
+
+  <div class="profile-content">
+    <p-card class="profile-card">
+      <div class="profile-header">
+        <p-avatar [label]="currentUser()?.name?.charAt(0) || 'U'" size="xlarge" shape="circle"></p-avatar>
+        <div class="profile-info">
+          <h2>{{ currentUser()?.name }}</h2>
+          <p>{{ currentUser()?.email }}</p>
+          <span class="role-badge">{{ currentUser()?.role === 'admin' ? 'Administrador' : 'Usuario' }}</span>
+        </div>
+      </div>
+
+      <form [formGroup]="profileForm" (ngSubmit)="updateProfile()">
+        <h3>Información Personal</h3>
+        <div class="form-grid">
+          <div class="form-field">
+            <label for="name">Nombre Completo</label>
+            <input pInputText id="name" formControlName="name" />
+          </div>
+
+          <div class="form-field">
+            <label for="email">Correo Electrónico</label>
+            <input pInputText id="email" formControlName="email" type="email" />
+          </div>
+
+          <div class="form-field">
+            <label for="role">Rol</label>
+            <input pInputText id="role" formControlName="role" />
+          </div>
+        </div>
+
+        <button pButton type="submit" label="Actualizar Perfil" icon="pi pi-save" [disabled]="!profileForm.valid"></button>
+      </form>
+    </p-card>
+
+    <p-card header="Cambiar Contraseña" class="password-card">
+      <form [formGroup]="passwordForm" (ngSubmit)="changePassword()">
+        <div class="form-field">
+          <label for="currentPassword">Contraseña Actual</label>
+          <input pInputText id="currentPassword" formControlName="currentPassword" type="password" />
+        </div>
+
+        <div class="form-field">
+          <label for="newPassword">Nueva Contraseña</label>
+          <input pInputText id="newPassword" formControlName="newPassword" type="password" />
+        </div>
+
+        <div class="form-field">
+          <label for="confirmPassword">Confirmar Contraseña</label>
+          <input pInputText id="confirmPassword" formControlName="confirmPassword" type="password" />
+        </div>
+
+        <button pButton type="submit" label="Cambiar Contraseña" icon="pi pi-lock" [disabled]="!passwordForm.valid"></button>
+      </form>
+    </p-card>
+  </div>
+</div>
+

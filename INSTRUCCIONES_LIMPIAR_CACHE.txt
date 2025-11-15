@@ -1,0 +1,77 @@
+============================================
+ INSTRUCCIONES PARA VER LOS CAMBIOS
+============================================
+
+Tu aplicación está LISTA y funcionando correctamente en el servidor.
+El problema es que tu navegador tiene archivos antiguos guardados (caché).
+
+IMPORTANTE: El servidor ya está corriendo en http://localhost:4200
+
+
+OPCIÓN 1: MODO INCÓGNITO (LA MÁS RÁPIDA)
+==========================================
+1. Abre tu navegador (Chrome, Edge, Firefox)
+2. Presiona: Ctrl + Shift + N (Modo Incógnito)
+3. En la ventana incógnita, escribe: http://localhost:4200/empleados/nuevo
+4. Presiona Enter
+
+✅ Deberías ver el formulario completo con 9 secciones
+
+
+OPCIÓN 2: LIMPIAR CACHÉ MANUALMENTE
+====================================
+1. CIERRA todas las pestañas de localhost:4200
+2. CIERRA TODO EL NAVEGADOR (X en todas las ventanas)
+3. Abre el navegador de nuevo
+4. Presiona: Ctrl + Shift + Delete
+5. Selecciona "Todo el tiempo"
+6. Marca SOLO: "Imágenes y archivos en caché"
+7. Haz clic en "Borrar datos"
+8. Espera 10 segundos
+9. Ve a: http://localhost:4200/empleados/nuevo
+
+
+OPCIÓN 3: RECARGAR FORZADO (SI YA ESTÁS EN LA PÁGINA)
+======================================================
+1. Estando en la página de localhost:4200/empleados/nuevo
+2. Presiona: Ctrl + Shift + R (varias veces)
+3. O presiona F12 para abrir herramientas de desarrollador
+4. Haz clic derecho en el botón de recargar (🔄)
+5. Selecciona: "Vaciar caché y recargar de forma forzada"
+
+
+✅ QUÉ DEBERÍAS VER:
+===================
+- Título: "Nuevo Empleado"
+- 9 secciones con fondo morado:
+  1. Información Personal (ABIERTA por defecto)
+  2. Información Laboral
+  3. Documentos y Datos Legales
+  4. Información Bancaria
+  5. Información Académica
+  6. Habilidades y Experiencia
+  7. Información de Emergencia
+  8. Datos Opcionales
+  9. Acceso al Sistema
+
+- Al hacer clic en cualquier sección, debe EXPANDIRSE y mostrar los campos
+- La sección 1 (Información Personal) ya está abierta por defecto
+
+
+❌ SI NO FUNCIONA:
+==================
+- Asegúrate de que el servidor esté corriendo (mira la consola)
+- Usa MODO INCÓGNITO (Opción 1) - esta es la más confiable
+- NO vayas a http://localhost:4200 primero, ve directo a:
+  http://localhost:4200/empleados/nuevo
+
+
+📞 NECESITAS AYUDA:
+===================
+Si sigues viendo "Lista de Empleados" o una pantalla en blanco:
+1. Confirma que estás usando MODO INCÓGNITO
+2. Verifica la URL: debe ser /empleados/nuevo (no solo /empleados)
+3. Presiona F12, ve a la pestaña "Console" y envíame cualquier error rojo
+
+============================================
+

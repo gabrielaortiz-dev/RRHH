@@ -2,6 +2,7 @@ import { Component, inject } from '@angular/core';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, AbstractControl } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { Navigation } from '../navigation';
+import { AuthService } from '../services/auth.service';
 
 @Component({
   selector: 'app-login',
@@ -14,6 +15,7 @@ export class Login {
   isLoading = false;
   errorMessage = '';
   private navigation = inject(Navigation);
+  private authService = inject(AuthService);
 
   constructor(private fb: FormBuilder) {
     this.loginForm = this.fb.group({
@@ -22,25 +24,33 @@ export class Login {
     });
   }
 
-  onSubmit() {
+  async onSubmit() {
     if (this.loginForm.valid) {
       this.isLoading = true;
       this.errorMessage = '';
       
-      // Simular autenticación (aquí conectarías con tu servicio de autenticación)
-      setTimeout(() => {
-        const { email, password } = this.loginForm.value;
+      const { email, password } = this.loginForm.value;
+      
+      try {
+        // Intentar autenticar con el servicio
+        const result = await this.authService.login({ email, password });
         
-        // Validación simple para demo (en producción usarías un servicio real)
-        if (email === 'admin@example.com' && password === '123456') {
+        if (result.success && result.user) {
           console.log('Login exitoso');
-          // Aquí redirigirías al usuario o actualizarías el estado de autenticación
+          console.log(`Usuario autenticado: ${result.user.name} (${result.user.email})`);
+          console.log(`Rol: ${result.user.role}`);
+          
+          // Navegar al menú después del login exitoso
+          this.navigation.showMenu();
         } else {
-          this.errorMessage = 'Credenciales incorrectas';
+          this.errorMessage = result.message || 'Error al iniciar sesión';
         }
-        
+      } catch (error) {
+        this.errorMessage = 'Error al conectar con el servidor';
+        console.error('Error en login:', error);
+      } finally {
         this.isLoading = false;
-      }, 1000);
+      }
     } else {
       this.markFormGroupTouched();
     }
