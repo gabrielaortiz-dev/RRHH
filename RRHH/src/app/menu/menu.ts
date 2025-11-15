@@ -1,13 +1,16 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { RouterOutlet, RouterLink, RouterLinkActive, Router, NavigationEnd } from '@angular/router';
 import { MenuItem } from 'primeng/api';
-import { MenubarModule } from 'primeng/menubar';
+import { ButtonModule } from 'primeng/button';
+import { TooltipModule } from 'primeng/tooltip';
 import { Navigation } from '../navigation';
 import { AuthService } from '../services/auth.service';
+import { filter } from 'rxjs/operators';
 
 @Component({
   selector: 'app-menu',
-  imports: [CommonModule, MenubarModule],
+  imports: [CommonModule, RouterOutlet, RouterLink, RouterLinkActive, ButtonModule, TooltipModule],
   templateUrl: './menu.html',
   styleUrl: './menu.css'
 })
@@ -15,17 +18,23 @@ export class Menu implements OnInit {
   items: MenuItem[] = [];
   private navigation = inject(Navigation);
   private authService = inject(AuthService);
+  private router = inject(Router);
+  
+  sidebarCollapsed = signal(false);
+  currentPageTitle = signal('Dashboard');
+  currentUser = this.authService.getCurrentUser();
 
   ngOnInit() {
     this.items = [
       {
         label: 'Inicio',
         icon: 'pi pi-home',
-        routerLink: '/'
+        routerLink: '/dashboard'
       },
       {
         label: 'Empleados',
         icon: 'pi pi-users',
+        expanded: false,
         items: [
           {
             label: 'Lista de Empleados',
@@ -42,6 +51,7 @@ export class Menu implements OnInit {
       {
         label: 'Departamentos',
         icon: 'pi pi-building',
+        expanded: false,
         items: [
           {
             label: 'Ver Departamentos',
@@ -58,6 +68,7 @@ export class Menu implements OnInit {
       {
         label: 'Reportes',
         icon: 'pi pi-chart-bar',
+        expanded: false,
         items: [
           {
             label: 'Reporte General',
@@ -74,6 +85,7 @@ export class Menu implements OnInit {
       {
         label: 'Configuración',
         icon: 'pi pi-cog',
+        expanded: false,
         items: [
           {
             label: 'Perfil',
@@ -84,27 +96,78 @@ export class Menu implements OnInit {
             label: 'Configuración General',
             icon: 'pi pi-wrench',
             routerLink: '/config/general'
-          },
-          {
-            separator: true
-          },
-          {
-            label: 'Cerrar Sesión',
-            icon: 'pi pi-sign-out',
-            command: () => {
-              this.logout();
-            }
           }
         ]
       }
     ];
+
+    // Actualizar título de página según la ruta
+    this.router.events.pipe(
+      filter(event => event instanceof NavigationEnd)
+    ).subscribe(() => {
+      this.updatePageTitle();
+    });
+    
+    this.updatePageTitle();
+  }
+
+  toggleSidebar() {
+    this.sidebarCollapsed.update(val => !val);
+  }
+
+  toggleSubmenu(item: MenuItem) {
+    item.expanded = !item.expanded;
+    // Cerrar otros submenús
+    this.items.forEach(i => {
+      if (i !== item && i.items) {
+        i.expanded = false;
+      }
+    });
+  }
+
+  isActive(item: MenuItem): boolean {
+    const currentUrl = this.router.url;
+    if (item.routerLink && currentUrl.includes(item.routerLink.toString())) {
+      return true;
+    }
+    if (item.items) {
+      return item.items.some(subitem => 
+        subitem.routerLink && currentUrl.includes(subitem.routerLink.toString())
+      );
+    }
+    return false;
+  }
+
+  updatePageTitle() {
+    const currentUrl = this.router.url;
+    const titles: { [key: string]: string } = {
+      '/dashboard': 'Dashboard',
+      '/empleados': 'Lista de Empleados',
+      '/empleados/nuevo': 'Nuevo Empleado',
+      '/departamentos': 'Departamentos',
+      '/departamentos/nuevo': 'Nuevo Departamento',
+      '/reportes/general': 'Reporte General',
+      '/reportes/asistencias': 'Reporte de Asistencias',
+      '/config/perfil': 'Mi Perfil',
+      '/config/general': 'Configuración General'
+    };
+
+    const title = Object.entries(titles).find(([path]) => 
+      currentUrl.includes(path)
+    )?.[1] || 'Dashboard';
+    
+    this.currentPageTitle.set(title);
+  }
+
+  executeCommand(item: MenuItem) {
+    if (item.command) {
+      item.command({});
+    }
   }
 
   logout() {
     console.log('Cerrando sesión...');
-    // Cerrar sesión en el servicio de autenticación
     this.authService.logout();
-    // Regresar al login
     this.navigation.showLogin();
   }
 }
