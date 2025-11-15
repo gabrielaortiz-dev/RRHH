@@ -24,33 +24,33 @@ export class Login {
     });
   }
 
-  async onSubmit() {
+  onSubmit() {
     if (this.loginForm.valid) {
       this.isLoading = true;
       this.errorMessage = '';
       
       const { email, password } = this.loginForm.value;
       
-      try {
-        // Intentar autenticar con el servicio
-        const result = await this.authService.login({ email, password });
-        
-        if (result.success && result.user) {
-          console.log('Login exitoso');
-          console.log(`Usuario autenticado: ${result.user.name} (${result.user.email})`);
-          console.log(`Rol: ${result.user.role}`);
-          
-          // Navegar al menú después del login exitoso
-          this.navigation.showMenu();
-        } else {
-          this.errorMessage = result.message || 'Error al iniciar sesión';
+      this.authService.login({ email, password }).subscribe({
+        next: (result) => {
+          if (result.success && result.user) {
+            console.log('Login exitoso');
+            console.log(`Usuario autenticado: ${result.user.name} (${result.user.email})`);
+            console.log(`Rol: ${result.user.role}`);
+            
+            // Navegar al menú después del login exitoso
+            this.navigation.showMenu();
+          } else {
+            this.errorMessage = result.message || 'Error al iniciar sesión';
+          }
+          this.isLoading = false;
+        },
+        error: (error) => {
+          this.errorMessage = error.message || 'Error al conectar con el servidor';
+          console.error('Error en login:', error);
+          this.isLoading = false;
         }
-      } catch (error) {
-        this.errorMessage = 'Error al conectar con el servidor';
-        console.error('Error en login:', error);
-      } finally {
-        this.isLoading = false;
-      }
+      });
     } else {
       this.markFormGroupTouched();
     }

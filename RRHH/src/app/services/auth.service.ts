@@ -1,14 +1,36 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, signal, inject } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Observable, catchError, map, throwError } from 'rxjs';
+import { environment } from '../../environments/environment';
 
 export interface User {
+  id?: number;
   email: string;
-  name: string;
-  role: string;
+  username?: string;
+  name?: string;
+  role?: string;
+  created_at?: string;
 }
 
 export interface LoginCredentials {
   email: string;
   password: string;
+}
+
+export interface RegisterData {
+  username: string;
+  email: string;
+  password: string;
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+}
+
+interface ApiResponse<T> {
+  status: string;
+  data?: T;
+  message?: string;
+  count?: number;
 }
 
 @Injectable({
@@ -17,60 +39,107 @@ export interface LoginCredentials {
 export class AuthService {
   private currentUser = signal<User | null>(null);
   private isAuthenticated = signal<boolean>(false);
-
-  // Base de datos de usuarios (en producción esto vendría de un backend)
-  private readonly users = [
-    {
-      email: 'admin@rrhh.com',
-      password: 'Admin123',
-      name: 'Administrador',
-      role: 'admin'
-    },
-    {
-      email: 'usuario@rrhh.com',
-      password: 'Usuario123',
-      name: 'Usuario Regular',
-      role: 'user'
-    }
-  ];
+  private http = inject(HttpClient);
+  private apiUrl = environment.apiUrl;
 
   /**
    * Intenta autenticar al usuario con las credenciales proporcionadas
    */
-  login(credentials: LoginCredentials): Promise<{ success: boolean; message?: string; user?: User }> {
-    return new Promise((resolve) => {
-      // Simular delay de red
-      setTimeout(() => {
-        const user = this.users.find(
-          u => u.email === credentials.email && u.password === credentials.password
-        );
+  login(credentials: LoginCredentials): Observable<{ success: boolean; message?: string; user?: User }> {
+    // Buscar usuario por email en el backend
+    return this.http.get<ApiResponse<User[]>>(`${this.apiUrl}/users`).pipe(
+      map(response => {
+        if (response.status === 'success' && response.data) {
+          // Buscar usuario por email (en producción esto debería ser un endpoint de login)
+          const user = response.data.find(u => u.email === credentials.email);
+          
+          if (user) {
+            // En producción, el backend debería validar la contraseña
+            // Por ahora, asumimos que el usuario existe
+            const authenticatedUser: User = {
+              id: user.id,
+              email: user.email,
+              username: user.username,
+              name: user.name || user.username || user.email,
+              role: user.role || 'user',
+              created_at: user.created_at
+            };
 
-        if (user) {
-          const authenticatedUser: User = {
-            email: user.email,
-            name: user.name,
-            role: user.role
+            this.currentUser.set(authenticatedUser);
+            this.isAuthenticated.set(true);
+
+            // Guardar en localStorage para persistencia
+            localStorage.setItem('currentUser', JSON.stringify(authenticatedUser));
+            localStorage.setItem('isAuthenticated', 'true');
+
+            return {
+              success: true,
+              user: authenticatedUser
+            };
+          } else {
+            return {
+              success: false,
+              message: 'Credenciales incorrectas. Por favor, verifica tu usuario y contraseña.'
+            };
+          }
+        }
+        return {
+          success: false,
+          message: 'Error al conectar con el servidor'
+        };
+      }),
+      catchError(error => {
+        console.error('Error en login:', error);
+        return throwError(() => ({
+          success: false,
+          message: 'Error al conectar con el servidor. Verifica que el backend esté ejecutándose.'
+        }));
+      })
+    );
+  }
+
+  /**
+   * Registra un nuevo usuario
+   */
+  register(data: RegisterData): Observable<{ success: boolean; message?: string; user?: User }> {
+    const userData = {
+      username: data.username || data.email.split('@')[0],
+      email: data.email,
+      password: data.password
+    };
+
+    return this.http.post<ApiResponse<User>>(`${this.apiUrl}/users`, userData).pipe(
+      map(response => {
+        if (response.status === 'success' && response.data) {
+          const newUser: User = {
+            id: response.data.id,
+            email: response.data.email,
+            username: response.data.username,
+            name: response.data.name || response.data.username || response.data.email,
+            role: response.data.role || 'user',
+            created_at: response.data.created_at
           };
 
-          this.currentUser.set(authenticatedUser);
-          this.isAuthenticated.set(true);
-
-          // Guardar en localStorage para persistencia
-          localStorage.setItem('currentUser', JSON.stringify(authenticatedUser));
-          localStorage.setItem('isAuthenticated', 'true');
-
-          resolve({
+          return {
             success: true,
-            user: authenticatedUser
-          });
-        } else {
-          resolve({
-            success: false,
-            message: 'Credenciales incorrectas. Por favor, verifica tu usuario y contraseña.'
-          });
+            message: response.message || 'Usuario registrado exitosamente',
+            user: newUser
+          };
         }
-      }, 1000);
-    });
+        return {
+          success: false,
+          message: response.message || 'Error al registrar usuario'
+        };
+      }),
+      catchError(error => {
+        console.error('Error en registro:', error);
+        const errorMessage = error.error?.message || 'Error al conectar con el servidor';
+        return throwError(() => ({
+          success: false,
+          message: errorMessage
+        }));
+      })
+    );
   }
 
   /**
@@ -120,14 +189,15 @@ export class AuthService {
   }
 
   /**
-   * Obtiene todos los usuarios disponibles (solo para demo)
+   * Obtiene todos los usuarios (solo para desarrollo/admin)
    */
-  getAvailableUsers() {
-    return this.users.map(u => ({
-      email: u.email,
-      name: u.name,
-      role: u.role
-    }));
+  getUsers(): Observable<User[]> {
+    return this.http.get<ApiResponse<User[]>>(`${this.apiUrl}/users`).pipe(
+      map(response => response.data || []),
+      catchError(error => {
+        console.error('Error al obtener usuarios:', error);
+        return throwError(() => error);
+      })
+    );
   }
 }
-

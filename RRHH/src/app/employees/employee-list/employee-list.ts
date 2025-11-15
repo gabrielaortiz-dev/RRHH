@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { TableModule } from 'primeng/table';
@@ -29,37 +29,82 @@ import { EmployeeService, Employee } from '../../services/employee.service';
   templateUrl: './employee-list.html',
   styleUrl: './employee-list.css'
 })
-export class EmployeeList {
+export class EmployeeList implements OnInit {
   private employeeService = inject(EmployeeService);
   private confirmationService = inject(ConfirmationService);
   private messageService = inject(MessageService);
 
-  employees = this.employeeService.getEmployees();
+  employees = signal<Employee[]>([]);
+  isLoading = signal(false);
   searchValue = signal('');
 
+  ngOnInit() {
+    this.loadEmployees();
+  }
+
+  loadEmployees() {
+    this.isLoading.set(true);
+    this.employeeService.getEmployees().subscribe({
+      next: (employees) => {
+        this.employees.set(employees);
+        this.isLoading.set(false);
+      },
+      error: (error) => {
+        console.error('Error al cargar empleados:', error);
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Error',
+          detail: 'No se pudieron cargar los empleados'
+        });
+        this.isLoading.set(false);
+      }
+    });
+  }
+
   deleteEmployee(employee: Employee) {
+    if (!employee.id) {
+      this.messageService.add({
+        severity: 'error',
+        summary: 'Error',
+        detail: 'ID de empleado no válido'
+      });
+      return;
+    }
+
     this.confirmationService.confirm({
-      message: `¿Está seguro que desea eliminar a ${employee.nombre} ${employee.apellido}?`,
+      message: `¿Está seguro que desea eliminar a ${employee.nombre} ${employee.apellido || ''}?`,
       header: 'Confirmar Eliminación',
       icon: 'pi pi-exclamation-triangle',
       acceptLabel: 'Sí, eliminar',
       rejectLabel: 'Cancelar',
       acceptButtonStyleClass: 'p-button-danger',
       accept: () => {
-        const success = this.employeeService.deleteEmployee(employee.id);
-        if (success) {
-          this.messageService.add({
-            severity: 'success',
-            summary: 'Eliminado',
-            detail: 'El empleado ha sido eliminado exitosamente'
-          });
-        } else {
-          this.messageService.add({
-            severity: 'error',
-            summary: 'Error',
-            detail: 'No se pudo eliminar el empleado'
-          });
-        }
+        this.employeeService.deleteEmployee(employee.id!).subscribe({
+          next: (success) => {
+            if (success) {
+              this.messageService.add({
+                severity: 'success',
+                summary: 'Eliminado',
+                detail: 'El empleado ha sido eliminado exitosamente'
+              });
+              this.loadEmployees(); // Recargar la lista
+            } else {
+              this.messageService.add({
+                severity: 'error',
+                summary: 'Error',
+                detail: 'No se pudo eliminar el empleado'
+              });
+            }
+          },
+          error: (error) => {
+            console.error('Error al eliminar empleado:', error);
+            this.messageService.add({
+              severity: 'error',
+              summary: 'Error',
+              detail: 'Error al conectar con el servidor'
+            });
+          }
+        });
       }
     });
   }
