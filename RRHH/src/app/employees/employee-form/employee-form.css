@@ -37,7 +37,7 @@
 .header-content h1 i {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  -webkit-text-fill-color: white;
   background-clip: text;
   font-size: 1.75rem;
 }
@@ -207,7 +207,7 @@
   border: 2px solid #e2e8f0 !important;
   border-radius: 10px !important;
   transition: all 0.2s ease !important;
-  background: #fafafa !important;
+  background: white !important;
   padding: 0.875rem 1rem !important;
   font-size: 0.9375rem !important;
   font-weight: 500 !important;
@@ -217,7 +217,7 @@
 .form-field ::ng-deep .p-inputnumber-input:hover,
 .form-field ::ng-deep .p-datepicker input:hover {
   border-color: #cbd5e1 !important;
-  background: white !important;
+  background: rgb(255, 250, 250) !important;
 }
 
 .form-field ::ng-deep .p-select:not(.p-disabled).p-focus,
@@ -234,7 +234,7 @@
 .form-field ::ng-deep .p-inputnumber.p-invalid .p-inputnumber-input,
 .form-field ::ng-deep .p-datepicker.p-invalid input {
   border-color: #ef4444 !important;
-  background: #fef2f2 !important;
+  background: #d4d2d2 !important;
 }
 
 .form-field input.p-invalid:focus,
@@ -358,13 +358,19 @@
 
 /* PrimeNG Dropdown Panel */
 ::ng-deep .p-select-overlay {
+  background: white !important;
   border-radius: 12px !important;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12) !important;
   border: 1px solid #e2e8f0 !important;
   margin-top: 4px !important;
 }
 
+::ng-deep .p-select-list {
+  background: white !important;
+}
+
 ::ng-deep .p-select-option {
+  background: white !important;
   border-radius: 8px !important;
   margin: 4px 8px !important;
   padding: 0.75rem 1rem !important;
@@ -479,7 +485,7 @@
 
 .form-field .card.flex.justify-center {
   width: 100%;
-  background: transparent;
+  background: white;
 }
 
 .form-field .card.flex.justify-center p-datepicker {
