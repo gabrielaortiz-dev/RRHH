@@ -1,0 +1,131 @@
+"""
+Modelos Pydantic para validación de datos
+"""
+from pydantic import BaseModel, EmailStr, Field
+from typing import Optional
+from datetime import datetime
+
+# Modelo para crear un nuevo usuario
+class UsuarioCreate(BaseModel):
+    nombre: str = Field(..., min_length=2, max_length=100, description="Nombre completo del usuario")
+    email: EmailStr = Field(..., description="Email único del usuario")
+    password: str = Field(..., min_length=6, max_length=255, description="Contraseña del usuario")
+    rol: str = Field(default="empleado", description="Rol del usuario (administrador, supervisor, empleado)")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "nombre": "Juan Pérez",
+                "email": "juan.perez@empresa.com",
+                "password": "password123",
+                "rol": "empleado"
+            }
+        }
+
+# Modelo para actualizar un usuario existente
+class UsuarioUpdate(BaseModel):
+    nombre: Optional[str] = Field(None, min_length=2, max_length=100)
+    email: Optional[EmailStr] = None
+    password: Optional[str] = Field(None, min_length=6, max_length=255)
+    rol: Optional[str] = None
+    activo: Optional[bool] = None
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "nombre": "Juan Pérez Actualizado",
+                "email": "juan.nuevo@empresa.com",
+                "rol": "supervisor"
+            }
+        }
+
+# Modelo de respuesta de usuario (sin password)
+class UsuarioResponse(BaseModel):
+    id: int
+    nombre: str
+    email: str
+    rol: str
+    fecha_creacion: str
+    activo: int
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "id": 1,
+                "nombre": "Juan Pérez",
+                "email": "juan.perez@empresa.com",
+                "rol": "empleado",
+                "fecha_creacion": "2025-11-15 14:53:12",
+                "activo": 1
+            }
+        }
+
+# Modelo para login
+class UsuarioLogin(BaseModel):
+    email: EmailStr
+    password: str
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "email": "admin@rrhh.com",
+                "password": "admin123"
+            }
+        }
+
+# Modelo para crear departamento
+class DepartamentoCreate(BaseModel):
+    nombre: str = Field(..., min_length=2, max_length=100)
+    descripcion: Optional[str] = None
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "nombre": "Tecnología",
+                "descripcion": "Departamento de desarrollo y sistemas"
+            }
+        }
+
+# Modelo para actualizar departamento
+class DepartamentoUpdate(BaseModel):
+    nombre: Optional[str] = Field(None, min_length=2, max_length=100)
+    descripcion: Optional[str] = None
+    activo: Optional[bool] = None
+
+# Modelo para crear empleado
+class EmpleadoCreate(BaseModel):
+    nombre: str = Field(..., min_length=2, max_length=100)
+    apellido: str = Field(..., min_length=2, max_length=100)
+    email: EmailStr
+    telefono: Optional[str] = None
+    departamento_id: int
+    puesto: str
+    fecha_ingreso: str
+    salario: float
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "nombre": "María",
+                "apellido": "García",
+                "email": "maria.garcia@empresa.com",
+                "telefono": "555-1234",
+                "departamento_id": 1,
+                "puesto": "Analista",
+                "fecha_ingreso": "2025-01-15",
+                "salario": 35000.00
+            }
+        }
+
+# Modelo para actualizar empleado
+class EmpleadoUpdate(BaseModel):
+    nombre: Optional[str] = None
+    apellido: Optional[str] = None
+    email: Optional[EmailStr] = None
+    telefono: Optional[str] = None
+    departamento_id: Optional[int] = None
+    puesto: Optional[str] = None
+    fecha_ingreso: Optional[str] = None
+    salario: Optional[float] = None
+    activo: Optional[bool] = None
+
