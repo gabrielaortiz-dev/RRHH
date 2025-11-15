@@ -2,6 +2,7 @@ import { Component, inject } from '@angular/core';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, AbstractControl } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { Navigation } from '../navigation';
+import { AuthService } from '../services/auth.service';
 
 @Component({
   selector: 'app-register',
@@ -15,6 +16,7 @@ export class Register {
   errorMessage = '';
   successMessage = '';
   private navigation = inject(Navigation);
+  private authService = inject(AuthService);
 
   constructor(private fb: FormBuilder) {
     this.registerForm = this.fb.group({
@@ -46,22 +48,39 @@ export class Register {
       this.errorMessage = '';
       this.successMessage = '';
       
-      // Simular registro de usuario (aquí conectarías con tu servicio de registro)
-      setTimeout(() => {
-        const formData = this.registerForm.value;
-        console.log('Datos de registro:', formData);
-        
-        // Simular éxito en el registro
-        this.successMessage = 'Usuario registrado exitosamente. Ya puedes iniciar sesión.';
-        this.isLoading = false;
-        
-        // Limpiar formulario después del éxito
-        setTimeout(() => {
-          this.registerForm.reset();
-          this.successMessage = '';
-        }, 3000);
-        
-      }, 2000);
+      const formData = this.registerForm.value;
+      
+      const registerData = {
+        username: formData.email.split('@')[0],
+        email: formData.email,
+        password: formData.password,
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        phone: formData.phone
+      };
+      
+      this.authService.register(registerData).subscribe({
+        next: (result) => {
+          if (result.success) {
+            this.successMessage = result.message || 'Usuario registrado exitosamente. Ya puedes iniciar sesión.';
+            
+            // Limpiar formulario después del éxito
+            setTimeout(() => {
+              this.registerForm.reset();
+              this.successMessage = '';
+              this.navigation.showLogin();
+            }, 3000);
+          } else {
+            this.errorMessage = result.message || 'Error al registrar usuario';
+          }
+          this.isLoading = false;
+        },
+        error: (error) => {
+          this.errorMessage = error.message || 'Error al conectar con el servidor';
+          console.error('Error en registro:', error);
+          this.isLoading = false;
+        }
+      });
     } else {
       this.markFormGroupTouched();
     }
