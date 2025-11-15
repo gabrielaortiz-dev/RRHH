@@ -1,0 +1,103 @@
+<div class="report-container">
+  <div class="page-header">
+    <div class="header-content">
+      <h1><i class="pi pi-file-pdf"></i> Reporte General</h1>
+      <p>Resumen completo de recursos humanos</p>
+    </div>
+    <div class="action-buttons">
+      <button pButton label="PDF" icon="pi pi-file-pdf" class="p-button-danger" (click)="exportPDF()"></button>
+      <button pButton label="Excel" icon="pi pi-file-excel" class="p-button-success" (click)="exportExcel()"></button>
+      <button pButton label="Imprimir" icon="pi pi-print" class="p-button-secondary" (click)="print()"></button>
+    </div>
+  </div>
+
+  <!-- Resumen de Empleados -->
+  <p-card header="Resumen de Empleados" class="section-card">
+    <div class="stats-grid">
+      <div class="stat-item">
+        <i class="pi pi-users stat-icon"></i>
+        <div>
+          <p class="stat-label">Total Empleados</p>
+          <h2 class="stat-value">{{ totalEmployees() }}</h2>
+        </div>
+      </div>
+      <div class="stat-item">
+        <i class="pi pi-check-circle stat-icon active"></i>
+        <div>
+          <p class="stat-label">Empleados Activos</p>
+          <h2 class="stat-value">{{ activeEmployees() }}</h2>
+        </div>
+      </div>
+      <div class="stat-item">
+        <i class="pi pi-times-circle stat-icon inactive"></i>
+        <div>
+          <p class="stat-label">Empleados Inactivos</p>
+          <h2 class="stat-value">{{ inactiveEmployees() }}</h2>
+        </div>
+      </div>
+      <div class="stat-item">
+        <i class="pi pi-dollar stat-icon salary"></i>
+        <div>
+          <p class="stat-label">Salario Promedio</p>
+          <h2 class="stat-value">{{ formatCurrency(averageSalary()) }}</h2>
+        </div>
+      </div>
+    </div>
+  </p-card>
+
+  <!-- Resumen de Departamentos -->
+  <p-card header="Resumen de Departamentos" class="section-card">
+    <div class="stats-grid">
+      <div class="stat-item">
+        <i class="pi pi-building stat-icon"></i>
+        <div>
+          <p class="stat-label">Total Departamentos</p>
+          <h2 class="stat-value">{{ totalDepartments() }}</h2>
+        </div>
+      </div>
+      <div class="stat-item">
+        <i class="pi pi-check stat-icon active"></i>
+        <div>
+          <p class="stat-label">Departamentos Activos</p>
+          <h2 class="stat-value">{{ activeDepartments() }}</h2>
+        </div>
+      </div>
+      <div class="stat-item">
+        <i class="pi pi-money-bill stat-icon salary"></i>
+        <div>
+          <p class="stat-label">Presupuesto Total</p>
+          <h2 class="stat-value">{{ formatCurrency(totalBudget()) }}</h2>
+        </div>
+      </div>
+    </div>
+  </p-card>
+
+  <!-- Gráfico y Tabla -->
+  <div class="charts-section">
+    <p-card header="Distribución de Empleados" class="chart-card">
+      <div class="chart-container">
+        <p-chart type="bar" [data]="employeesByDepartment()" [options]="chartOptions"></p-chart>
+      </div>
+    </p-card>
+
+    <p-card header="Detalle de Departamentos" class="table-card">
+      <p-table [value]="departments()" styleClass="p-datatable-striped">
+        <ng-template pTemplate="header">
+          <tr>
+            <th>Departamento</th>
+            <th>Empleados</th>
+            <th>Presupuesto</th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-dept>
+          <tr>
+            <td><strong>{{ dept.nombre }}</strong></td>
+            <td>{{ dept.numeroEmpleados }}</td>
+            <td>{{ formatCurrency(dept.presupuesto) }}</td>
+          </tr>
+        </ng-template>
+      </p-table>
+    </p-card>
+  </div>
+</div>
+
