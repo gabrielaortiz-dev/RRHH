@@ -6,11 +6,12 @@ import { ButtonModule } from 'primeng/button';
 import { TooltipModule } from 'primeng/tooltip';
 import { Navigation } from '../navigation';
 import { AuthService } from '../services/auth.service';
+import { NotificationPanel } from '../notifications/notification-panel';
 import { filter } from 'rxjs/operators';
 
 @Component({
   selector: 'app-menu',
-  imports: [CommonModule, RouterOutlet, RouterLink, RouterLinkActive, ButtonModule, TooltipModule],
+  imports: [CommonModule, RouterOutlet, RouterLink, RouterLinkActive, ButtonModule, TooltipModule, NotificationPanel],
   templateUrl: './menu.html',
   styleUrl: './menu.css'
 })
@@ -93,6 +94,11 @@ export class Menu implements OnInit {
             routerLink: '/config/perfil'
           },
           {
+            label: 'Notificaciones',
+            icon: 'pi pi-bell',
+            routerLink: '/config/notificaciones'
+          },
+          {
             label: 'Configuración General',
             icon: 'pi pi-wrench',
             routerLink: '/config/general'
@@ -149,6 +155,7 @@ export class Menu implements OnInit {
       '/reportes/general': 'Reporte General',
       '/reportes/asistencias': 'Reporte de Asistencias',
       '/config/perfil': 'Mi Perfil',
+      '/config/notificaciones': 'Configuración de Notificaciones',
       '/config/general': 'Configuración General'
     };
 

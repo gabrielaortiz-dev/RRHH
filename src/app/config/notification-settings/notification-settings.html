@@ -1,0 +1,166 @@
+<div class="notification-settings-container">
+  <p-toast></p-toast>
+
+  <div class="settings-header">
+    <h1>
+      <i class="pi pi-bell"></i>
+      Configuración de Notificaciones
+    </h1>
+    <p>Personaliza cómo y cuándo recibir notificaciones del sistema</p>
+  </div>
+
+  <!-- Email Notifications -->
+  <p-card>
+    <ng-template pTemplate="header">
+      <div class="card-header">
+        <i class="pi pi-envelope"></i>
+        <span>Notificaciones por Correo Electrónico</span>
+      </div>
+    </ng-template>
+
+    <div class="email-section">
+      <div class="email-toggle">
+        <p-checkbox
+          [(ngModel)]="config()!.emailNotifications"
+          [binary]="true"
+          inputId="emailNotifications">
+        </p-checkbox>
+        <label for="emailNotifications">
+          <strong>Recibir notificaciones por email</strong>
+          <span class="description">Las notificaciones también se enviarán a tu correo electrónico</span>
+        </label>
+      </div>
+
+      @if (config()?.emailNotifications) {
+        <div class="email-input">
+          <label for="emailAddress">Dirección de correo</label>
+          <input
+            pInputText
+            id="emailAddress"
+            type="email"
+            [(ngModel)]="config()!.email"
+            placeholder="tu-email@ejemplo.com"
+            class="w-full" />
+        </div>
+      }
+    </div>
+  </p-card>
+
+  <p-divider></p-divider>
+
+  <!-- Notification Types -->
+  <p-card>
+    <ng-template pTemplate="header">
+      <div class="card-header">
+        <i class="pi pi-tags"></i>
+        <span>Tipos de Notificaciones</span>
+      </div>
+    </ng-template>
+
+    <div class="section-actions">
+      <p-message
+        severity="info"
+        text="Selecciona qué tipos de notificaciones deseas recibir">
+      </p-message>
+      <div class="action-buttons">
+        <button pButton label="Habilitar Todo" icon="pi pi-check" class="p-button-sm p-button-text" (click)="enableAll()"></button>
+        <button pButton label="Deshabilitar Todo" icon="pi pi-times" class="p-button-sm p-button-text" (click)="disableAll()"></button>
+      </div>
+    </div>
+
+    <div class="options-grid">
+      @for (option of typeOptions; track option.type) {
+        <div class="option-card" [class.enabled]="isTypeEnabled(option.type)">
+          <div class="option-checkbox">
+            <p-checkbox
+              [ngModel]="isTypeEnabled(option.type)"
+              (ngModelChange)="toggleType(option.type)"
+              [binary]="true"
+              [inputId]="'type-' + option.type">
+            </p-checkbox>
+          </div>
+          <div class="option-icon">
+            <i [class]="'pi ' + option.icon"></i>
+          </div>
+          <div class="option-content">
+            <label [for]="'type-' + option.type" class="option-label">
+              {{ option.label }}
+            </label>
+            <span class="option-description">{{ option.description }}</span>
+          </div>
+        </div>
+      }
+    </div>
+  </p-card>
+
+  <p-divider></p-divider>
+
+  <!-- Notification Modules -->
+  <p-card>
+    <ng-template pTemplate="header">
+      <div class="card-header">
+        <i class="pi pi-th-large"></i>
+        <span>Módulos del Sistema</span>
+      </div>
+    </ng-template>
+
+    <p-message
+      severity="info"
+      text="Selecciona de qué módulos deseas recibir notificaciones">
+    </p-message>
+
+    <div class="options-grid">
+      @for (option of moduleOptions; track option.module) {
+        <div class="option-card" [class.enabled]="isModuleEnabled(option.module)">
+          <div class="option-checkbox">
+            <p-checkbox
+              [ngModel]="isModuleEnabled(option.module)"
+              (ngModelChange)="toggleModule(option.module)"
+              [binary]="true"
+              [inputId]="'module-' + option.module">
+            </p-checkbox>
+          </div>
+          <div class="option-icon">
+            <i [class]="'pi ' + option.icon"></i>
+          </div>
+          <div class="option-content">
+            <label [for]="'module-' + option.module" class="option-label">
+              {{ option.label }}
+            </label>
+            <span class="option-description">{{ option.description }}</span>
+          </div>
+        </div>
+      }
+    </div>
+  </p-card>
+
+  <p-divider></p-divider>
+
+  <!-- Actions -->
+  <div class="settings-actions">
+    <div class="action-group">
+      <button
+        pButton
+        label="Guardar Configuración"
+        icon="pi pi-save"
+        class="p-button-success"
+        (click)="saveConfig()">
+      </button>
+      <button
+        pButton
+        label="Restaurar Predeterminados"
+        icon="pi pi-refresh"
+        class="p-button-secondary"
+        (click)="resetConfig()">
+      </button>
+    </div>
+    <button
+      pButton
+      label="Probar Notificaciones"
+      icon="pi pi-bell"
+      class="p-button-help"
+      (click)="createTestNotifications()">
+    </button>
+  </div>
+</div>
+

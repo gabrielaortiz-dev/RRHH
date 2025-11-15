@@ -8,6 +8,7 @@ import { GeneralReport } from './reports/general-report/general-report';
 import { AttendanceReport } from './reports/attendance-report/attendance-report';
 import { UserProfile } from './config/user-profile/user-profile';
 import { GeneralSettings } from './config/general-settings/general-settings';
+import { NotificationSettings } from './config/notification-settings/notification-settings';
 
 export const routes: Routes = [
   {
@@ -50,5 +51,9 @@ export const routes: Routes = [
   {
     path: 'config/general',
     component: GeneralSettings
+  },
+  {
+    path: 'config/notificaciones',
+    component: NotificationSettings
   }
 ];

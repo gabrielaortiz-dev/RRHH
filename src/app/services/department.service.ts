@@ -1,4 +1,6 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, signal, inject } from '@angular/core';
+import { NotificationService } from './notification.service';
+import { NotificationType, NotificationModule } from '../models/notification.model';
 
 export interface Department {
   id: number;
@@ -15,6 +17,8 @@ export interface Department {
   providedIn: 'root'
 })
 export class DepartmentService {
+  private notificationService = inject(NotificationService);
+  
   private departments = signal<Department[]>([
     {
       id: 1,
@@ -87,6 +91,18 @@ export class DepartmentService {
       id: this.nextId++
     };
     this.departments.update(depts => [...depts, newDepartment]);
+    
+    // Notificar al administrador sobre el nuevo departamento
+    this.notificationService.createNotification({
+      userId: 'admin@rrhh.com',
+      type: NotificationType.SUCCESS,
+      title: 'Nuevo Departamento Creado',
+      message: `El departamento "${newDepartment.nombre}" ha sido creado exitosamente`,
+      module: NotificationModule.DEPARTMENTS,
+      moduleId: newDepartment.id.toString(),
+      redirectUrl: `/departamentos`
+    });
+    
     return newDepartment;
   }
 
@@ -96,11 +112,27 @@ export class DepartmentService {
   updateDepartment(id: number, department: Partial<Department>): boolean {
     const index = this.departments().findIndex(dept => dept.id === id);
     if (index !== -1) {
+      const originalDepartment = this.departments()[index];
       this.departments.update(depts => {
         const updated = [...depts];
         updated[index] = { ...updated[index], ...department };
         return updated;
       });
+      
+      // Notificar si hay cambios importantes
+      if (department.estado && department.estado !== originalDepartment.estado) {
+        const type = department.estado === 'Activo' ? NotificationType.SUCCESS : NotificationType.WARNING;
+        this.notificationService.createNotification({
+          userId: 'admin@rrhh.com',
+          type,
+          title: 'Cambio de Estado de Departamento',
+          message: `El departamento "${originalDepartment.nombre}" ha sido ${department.estado === 'Activo' ? 'activado' : 'desactivado'}`,
+          module: NotificationModule.DEPARTMENTS,
+          moduleId: id.toString(),
+          redirectUrl: `/departamentos`
+        });
+      }
+      
       return true;
     }
     return false;
@@ -110,8 +142,21 @@ export class DepartmentService {
    * Elimina un departamento
    */
   deleteDepartment(id: number): boolean {
+    const department = this.getDepartmentById(id);
     const initialLength = this.departments().length;
     this.departments.update(depts => depts.filter(dept => dept.id !== id));
+    
+    if (this.departments().length < initialLength && department) {
+      // Notificar sobre la eliminación
+      this.notificationService.createNotification({
+        userId: 'admin@rrhh.com',
+        type: NotificationType.WARNING,
+        title: 'Departamento Eliminado',
+        message: `El departamento "${department.nombre}" ha sido eliminado del sistema`,
+        module: NotificationModule.DEPARTMENTS
+      });
+    }
+    
     return this.departments().length < initialLength;
   }
 

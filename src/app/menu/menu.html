@@ -94,9 +94,7 @@
         <h2 class="page-title">{{ currentPageTitle() }}</h2>
       </div>
       <div class="header-right">
-        <button pButton icon="pi pi-bell" class="p-button-rounded p-button-text notification-btn">
-          <span class="badge">3</span>
-        </button>
+        <app-notification-panel></app-notification-panel>
         <button pButton icon="pi pi-cog" class="p-button-rounded p-button-text" 
                 [routerLink]="'/config/general'"></button>
         <button pButton icon="pi pi-sign-out" class="p-button-rounded p-button-text"

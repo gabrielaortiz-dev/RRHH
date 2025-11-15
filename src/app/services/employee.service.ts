@@ -1,4 +1,6 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, signal, inject } from '@angular/core';
+import { NotificationService } from './notification.service';
+import { NotificationType, NotificationModule } from '../models/notification.model';
 
 // Interfaz para historial laboral
 export interface WorkHistory {
@@ -81,6 +83,8 @@ export interface Employee {
   providedIn: 'root'
 })
 export class EmployeeService {
+  private notificationService = inject(NotificationService);
+  
   private employees = signal<Employee[]>([
     {
       id: 1,
@@ -367,6 +371,18 @@ export class EmployeeService {
       documentos: employee.documentos || []
     };
     this.employees.update(emps => [...emps, newEmployee]);
+    
+    // Notificar al administrador sobre el nuevo empleado
+    this.notificationService.createNotification({
+      userId: 'admin@rrhh.com',
+      type: NotificationType.SUCCESS,
+      title: 'Nuevo Empleado Registrado',
+      message: `${newEmployee.nombre} ${newEmployee.apellido} ha sido registrado exitosamente en ${newEmployee.departamento}`,
+      module: NotificationModule.EMPLOYEES,
+      moduleId: newEmployee.id.toString(),
+      redirectUrl: `/empleados`
+    });
+    
     return newEmployee;
   }
 
@@ -376,11 +392,42 @@ export class EmployeeService {
   updateEmployee(id: number, employee: Partial<Employee>): boolean {
     const index = this.employees().findIndex(emp => emp.id === id);
     if (index !== -1) {
+      const originalEmployee = this.employees()[index];
       this.employees.update(emps => {
         const updated = [...emps];
         updated[index] = { ...updated[index], ...employee };
         return updated;
       });
+      
+      // Notificar si hay cambios importantes
+      if (employee.estado && employee.estado !== originalEmployee.estado) {
+        let message = '';
+        let type = NotificationType.INFO;
+        
+        if (employee.estado === 'Suspendido') {
+          message = `${originalEmployee.nombre} ${originalEmployee.apellido} ha sido suspendido`;
+          type = NotificationType.WARNING;
+        } else if (employee.estado === 'Retirado') {
+          message = `${originalEmployee.nombre} ${originalEmployee.apellido} ha sido retirado de la empresa`;
+          type = NotificationType.INFO;
+        } else if (employee.estado === 'Activo') {
+          message = `${originalEmployee.nombre} ${originalEmployee.apellido} ha sido reactivado`;
+          type = NotificationType.SUCCESS;
+        }
+        
+        if (message) {
+          this.notificationService.createNotification({
+            userId: 'admin@rrhh.com',
+            type,
+            title: 'Cambio de Estado de Empleado',
+            message,
+            module: NotificationModule.EMPLOYEES,
+            moduleId: id.toString(),
+            redirectUrl: `/empleados`
+          });
+        }
+      }
+      
       return true;
     }
     return false;
@@ -390,8 +437,21 @@ export class EmployeeService {
    * Elimina un empleado
    */
   deleteEmployee(id: number): boolean {
+    const employee = this.getEmployeeById(id);
     const initialLength = this.employees().length;
     this.employees.update(emps => emps.filter(emp => emp.id !== id));
+    
+    if (this.employees().length < initialLength && employee) {
+      // Notificar sobre la eliminación
+      this.notificationService.createNotification({
+        userId: 'admin@rrhh.com',
+        type: NotificationType.WARNING,
+        title: 'Empleado Eliminado',
+        message: `El registro de ${employee.nombre} ${employee.apellido} ha sido eliminado del sistema`,
+        module: NotificationModule.EMPLOYEES
+      });
+    }
+    
     return this.employees().length < initialLength;
   }
 

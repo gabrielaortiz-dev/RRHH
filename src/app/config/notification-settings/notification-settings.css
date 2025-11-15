@@ -1,0 +1,298 @@
+.notification-settings-container {
+  padding: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* Header */
+.settings-header {
+  margin-bottom: 2rem;
+}
+
+.settings-header h1 {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--text-color);
+  margin: 0 0 0.5rem 0;
+}
+
+.settings-header h1 i {
+  color: var(--primary-color);
+  font-size: 2rem;
+}
+
+.settings-header p {
+  color: var(--text-color-secondary);
+  margin: 0;
+  font-size: 1rem;
+}
+
+/* Card */
+:host ::ng-deep .p-card {
+  margin-bottom: 1.5rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border-radius: 12px;
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 1.5rem;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+.card-header i {
+  color: var(--primary-color);
+  font-size: 1.5rem;
+}
+
+:host ::ng-deep .p-card-content {
+  padding: 1.5rem;
+}
+
+/* Email Section */
+.email-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.email-toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.email-toggle label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  cursor: pointer;
+}
+
+.email-toggle label strong {
+  color: var(--text-color);
+  font-size: 1rem;
+}
+
+.description {
+  color: var(--text-color-secondary);
+  font-size: 0.875rem;
+}
+
+.email-input {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1rem;
+  background: var(--surface-ground);
+  border-radius: 8px;
+}
+
+.email-input label {
+  font-weight: 600;
+  color: var(--text-color);
+  font-size: 0.875rem;
+}
+
+/* Section Actions */
+.section-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 0.5rem;
+}
+
+/* Options Grid */
+.options-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.option-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1.25rem;
+  background: var(--surface-card);
+  border: 2px solid var(--surface-border);
+  border-radius: 10px;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.option-card:hover {
+  border-color: var(--primary-color);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  transform: translateY(-2px);
+}
+
+.option-card.enabled {
+  background: var(--primary-color);
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+  border-color: var(--primary-color);
+}
+
+.option-checkbox {
+  flex-shrink: 0;
+  padding-top: 0.25rem;
+}
+
+.option-icon {
+  flex-shrink: 0;
+  width: 2.5rem;
+  height: 2.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-ground);
+  border-radius: 50%;
+  color: var(--primary-color);
+  font-size: 1.25rem;
+}
+
+.option-card.enabled .option-icon {
+  background: var(--primary-color);
+  color: white;
+}
+
+.option-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.option-label {
+  font-weight: 600;
+  color: var(--text-color);
+  font-size: 0.95rem;
+  cursor: pointer;
+  display: block;
+}
+
+.option-description {
+  color: var(--text-color-secondary);
+  font-size: 0.8125rem;
+  line-height: 1.4;
+}
+
+/* Settings Actions */
+.settings-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.5rem;
+  background: var(--surface-section);
+  border-radius: 12px;
+  flex-wrap: wrap;
+}
+
+.action-group {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+/* Message */
+:host ::ng-deep .p-message {
+  margin-bottom: 1rem;
+}
+
+/* Divider */
+:host ::ng-deep .p-divider {
+  margin: 2rem 0;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .notification-settings-container {
+    padding: 1rem;
+  }
+
+  .settings-header h1 {
+    font-size: 1.5rem;
+  }
+
+  .options-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .action-group {
+    flex-direction: column;
+  }
+
+  .action-group button,
+  .settings-actions > button {
+    width: 100%;
+  }
+
+  .section-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .action-buttons {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
+
+/* Checkbox customization */
+:host ::ng-deep .p-checkbox .p-checkbox-box {
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+:host ::ng-deep .p-checkbox .p-checkbox-box.p-highlight {
+  background: var(--primary-color);
+  border-color: var(--primary-color);
+}
+
+/* Input customization */
+:host ::ng-deep .p-inputtext {
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  border: 2px solid var(--surface-border);
+  transition: all 0.2s ease;
+}
+
+:host ::ng-deep .p-inputtext:enabled:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.2);
+}
+
+/* Button customization */
+:host ::ng-deep .p-button {
+  border-radius: 8px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+:host ::ng-deep .p-button:not(:disabled):hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
