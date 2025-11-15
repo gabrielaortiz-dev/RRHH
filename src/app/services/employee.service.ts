@@ -27,6 +27,7 @@ export interface DocumentFile {
   id: number;
   nombre: string;
   tipo: 'CV' | 'Certificado' | 'Diploma' | 'Contrato' | 'Identificación' | 'Otro';
+  descripcion?: string;
   url: string;
   fechaSubida: Date;
   tamano: number; // en bytes

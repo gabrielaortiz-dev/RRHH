@@ -20,20 +20,20 @@ export const routes: Routes = [
     component: Dashboard
   },
   {
-    path: 'empleados',
-    component: EmployeeList
-  },
-  {
     path: 'empleados/nuevo',
     component: EmployeeForm
   },
   {
-    path: 'departamentos',
-    component: DepartmentList
+    path: 'empleados',
+    component: EmployeeList
   },
   {
     path: 'departamentos/nuevo',
     component: DepartmentForm
+  },
+  {
+    path: 'departamentos',
+    component: DepartmentList
   },
   {
     path: 'reportes/general',

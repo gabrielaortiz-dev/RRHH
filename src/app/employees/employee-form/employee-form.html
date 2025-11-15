@@ -1,168 +1,83 @@
 <div class="employee-form-container">
-  <p-toast />
+  <p-toast></p-toast>
 
   <div class="page-header">
     <div class="header-content">
-      <h1><i class="pi pi-user-plus"></i> Nuevo Empleado</h1>
-      <p>Complete toda la información del empleado</p>
+      <h1><i class="pi pi-user-plus"></i> 🆕 Nuevo Empleado - Versión Actualizada</h1>
+      <p>Complete toda la información del empleado - Gestión Integral de RRHH</p>
+      <small style="color: #10b981; font-weight: bold;">✓ Sistema actualizado correctamente</small>
     </div>
   </div>
 
   <div class="form-card">
     <p-card>
-      <!-- Sección 1: Datos Personales -->
+      
+      <!-- 1. INFORMACIÓN PERSONAL -->
       <div class="collapsible-section">
-        <div class="section-header-collapsible" (click)="showPersonalData.set(!showPersonalData())">
+        <div class="section-header-collapsible" (click)="showPersonal.set(!showPersonal())">
           <div class="tab-header">
             <i class="pi pi-user"></i>
-            <span>Datos Personales</span>
+            <span>1. Información Personal</span>
           </div>
-          <i [class]="showPersonalData() ? 'pi pi-chevron-up' : 'pi pi-chevron-down'"></i>
+          <i [class]="showPersonal() ? 'pi pi-chevron-up' : 'pi pi-chevron-down'"></i>
         </div>
 
-        @if (showPersonalData()) {
-          <div class="section-content">
+        @if (showPersonal()) {
+          <div class="section-content" style="display: block !important; min-height: 200px !important; background: #f0f8ff !important;">
             <form [formGroup]="personalForm">
-              <!-- Foto de perfil -->
-              <div class="photo-section">
-                <div class="photo-container">
-                  @if (employeePhoto()) {
-                    <img [src]="employeePhoto()" alt="Foto del empleado" class="employee-photo" />
-                  } @else {
-                    <div class="photo-placeholder">
-                      <i class="pi pi-user"></i>
-                      <p>Sin foto</p>
-                    </div>
-                  }
-                </div>
-                <div class="photo-upload">
-                  <p-fileupload 
-                    mode="basic" 
-                    chooseLabel="Seleccionar Foto"
-                    [auto]="true"
-                    accept="image/*"
-                    [maxFileSize]="1000000"
-                    (onSelect)="onPhotoSelect($event)"
-                    chooseIcon="pi pi-camera">
-                  </p-fileupload>
-                  <small>Máximo 1MB. Formatos: JPG, PNG</small>
-                </div>
-              </div>
-
+              
               <div class="form-section">
-                <h3><i class="pi pi-id-card"></i> Información Básica</h3>
+                <h3><i class="pi pi-id-card"></i> Datos Básicos</h3>
                 <div class="form-grid">
                   <div class="form-field">
-                    <label for="nombre">Nombre *</label>
-                    <input pInputText id="nombre" formControlName="nombre"
-                           placeholder="Ingrese el nombre"
-                           [class.p-invalid]="hasError(personalForm, 'nombre')" />
-                    @if (hasError(personalForm, 'nombre')) {
-                      <small class="p-error">{{ getErrorMessage(personalForm, 'nombre') }}</small>
-                    }
+                    <label for="nombreCompleto">Nombre Completo *</label>
+                    <input pInputText id="nombreCompleto" formControlName="nombreCompleto" placeholder="Nombre y apellidos completos" />
                   </div>
-
                   <div class="form-field">
-                    <label for="apellido">Apellido *</label>
-                    <input pInputText id="apellido" formControlName="apellido"
-                           placeholder="Ingrese el apellido"
-                           [class.p-invalid]="hasError(personalForm, 'apellido')" />
-                    @if (hasError(personalForm, 'apellido')) {
-                      <small class="p-error">{{ getErrorMessage(personalForm, 'apellido') }}</small>
-                    }
+                    <label for="numeroIdentidad">Número de Identidad / DNI *</label>
+                    <input pInputText id="numeroIdentidad" formControlName="numeroIdentidad" placeholder="0801-1234-56789" />
                   </div>
-
-                  <div class="form-field">
-                    <label for="cedula">Cédula</label>
-                    <input pInputText id="cedula" formControlName="cedula"
-                           placeholder="001-1234567-8" />
-                  </div>
-
                   <div class="form-field">
                     <label for="fechaNacimiento">Fecha de Nacimiento</label>
-                    <div class="card flex justify-center">
-                      <p-datepicker id="fechaNacimiento" formControlName="fechaNacimiento"
-                                  [showIcon]="true" dateFormat="dd/mm/yy"
-                                  placeholder="Seleccione fecha">
-                      </p-datepicker>
-                    </div>
+                    <p-datepicker id="fechaNacimiento" formControlName="fechaNacimiento" [showIcon]="true" dateFormat="dd/mm/yy"></p-datepicker>
                   </div>
-
                   <div class="form-field">
                     <label for="genero">Género</label>
-                    <p-select id="genero" formControlName="genero"
-                             [options]="generos" placeholder="Seleccione">
-                    </p-select>
+                    <p-select id="genero" formControlName="genero" [options]="generos" placeholder="Seleccione"></p-select>
                   </div>
-
                   <div class="form-field">
                     <label for="estadoCivil">Estado Civil</label>
-                    <p-select id="estadoCivil" formControlName="estadoCivil"
-                             [options]="estadosCiviles" placeholder="Seleccione">
-                    </p-select>
+                    <p-select id="estadoCivil" formControlName="estadoCivil" [options]="estadosCiviles" placeholder="Seleccione"></p-select>
                   </div>
-
                   <div class="form-field">
                     <label for="nacionalidad">Nacionalidad</label>
-                    <input pInputText id="nacionalidad" formControlName="nacionalidad"
-                           placeholder="Ej: Hondureña" />
+                    <input pInputText id="nacionalidad" formControlName="nacionalidad" placeholder="Ej: Hondureña" />
                   </div>
-                </div>
-              </div>
-
-              <div class="form-section">
-                <h3><i class="pi pi-phone"></i> Contacto</h3>
-                <div class="form-grid">
-                  <div class="form-field">
-                    <label for="email">Email *</label>
-                    <input pInputText id="email" type="email" formControlName="email"
-                           placeholder="correo@ejemplo.com"
-                           [class.p-invalid]="hasError(personalForm, 'email')" />
-                    @if (hasError(personalForm, 'email')) {
-                      <small class="p-error">{{ getErrorMessage(personalForm, 'email') }}</small>
-                    }
-                  </div>
-
-                  <div class="form-field">
-                    <label for="telefono">Teléfono *</label>
-                    <input pInputText id="telefono" formControlName="telefono"
-                           placeholder="809-555-1234"
-                           [class.p-invalid]="hasError(personalForm, 'telefono')" />
-                    @if (hasError(personalForm, 'telefono')) {
-                      <small class="p-error">{{ getErrorMessage(personalForm, 'telefono') }}</small>
-                    }
-                  </div>
-
                   <div class="form-field full-width">
-                    <label for="direccion">Dirección</label>
-                    <input pInputText id="direccion" formControlName="direccion"
-                           placeholder="Calle, número, ciudad" />
+                    <label for="direccion">Dirección Completa</label>
+                    <input pInputText id="direccion" formControlName="direccion" placeholder="Calle, colonia, ciudad, departamento" />
                   </div>
                 </div>
               </div>
 
               <div class="form-section">
-                <h3><i class="pi pi-exclamation-triangle"></i> Contacto de Emergencia</h3>
+                <h3><i class="pi pi-phone"></i> Información de Contacto</h3>
                 <div class="form-grid">
                   <div class="form-field">
-                    <label for="contactoEmergenciaNombre">Nombre</label>
-                    <input pInputText id="contactoEmergenciaNombre"
-                           formControlName="contactoEmergenciaNombre"
-                           placeholder="Nombre completo" />
+                    <label for="telefonoPersonal">Teléfono Personal *</label>
+                    <input pInputText id="telefonoPersonal" formControlName="telefonoPersonal" placeholder="9999-9999" />
                   </div>
-
                   <div class="form-field">
-                    <label for="contactoEmergenciaTelefono">Teléfono</label>
-                    <input pInputText id="contactoEmergenciaTelefono"
-                           formControlName="contactoEmergenciaTelefono"
-                           placeholder="809-555-1234" />
+                    <label for="telefonoCasa">Teléfono de Casa</label>
+                    <input pInputText id="telefonoCasa" formControlName="telefonoCasa" placeholder="2222-2222" />
                   </div>
-
                   <div class="form-field">
-                    <label for="contactoEmergenciaRelacion">Relación</label>
-                    <input pInputText id="contactoEmergenciaRelacion"
-                           formControlName="contactoEmergenciaRelacion"
-                           placeholder="Ej: Esposo/a, Padre, Madre" />
+                    <label for="telefonoOficina">Teléfono de Oficina</label>
+                    <input pInputText id="telefonoOficina" formControlName="telefonoOficina" placeholder="2000-0000" />
+                  </div>
+                  <div class="form-field">
+                    <label for="correoPersonal">Correo Electrónico Personal *</label>
+                    <input pInputText id="correoPersonal" type="email" formControlName="correoPersonal" placeholder="ejemplo@correo.com" />
                   </div>
                 </div>
               </div>
@@ -171,430 +86,365 @@
         }
       </div>
 
-      <!-- Sección 2: Información Laboral -->
+      <!-- 2. INFORMACIÓN LABORAL -->
       <div class="collapsible-section">
-        <div class="section-header-collapsible" (click)="showLaboralData.set(!showLaboralData())">
+        <div class="section-header-collapsible" (click)="showLaboral.set(!showLaboral())">
           <div class="tab-header">
             <i class="pi pi-briefcase"></i>
-            <span>Información Laboral</span>
+            <span>2. Información Laboral</span>
           </div>
-          <i [class]="showLaboralData() ? 'pi pi-chevron-up' : 'pi pi-chevron-down'"></i>
+          <i [class]="showLaboral() ? 'pi pi-chevron-up' : 'pi pi-chevron-down'"></i>
         </div>
 
-        @if (showLaboralData()) {
+        @if (showLaboral()) {
           <div class="section-content">
             <form [formGroup]="laboralForm">
               <div class="form-section">
                 <h3><i class="pi pi-building"></i> Datos del Puesto</h3>
                 <div class="form-grid">
                   <div class="form-field">
+                    <label for="cargo">Cargo / Puesto *</label>
+                    <p-select id="cargo" formControlName="cargo" [options]="puestos" placeholder="Seleccione"></p-select>
+                  </div>
+                  <div class="form-field">
                     <label for="departamento">Departamento *</label>
-                    <p-select id="departamento" formControlName="departamento"
-                             [options]="departamentos" placeholder="Seleccione"
-                             [class.p-invalid]="hasError(laboralForm, 'departamento')">
-                    </p-select>
-                    @if (hasError(laboralForm, 'departamento')) {
-                      <small class="p-error">{{ getErrorMessage(laboralForm, 'departamento') }}</small>
-                    }
+                    <p-select id="departamento" formControlName="departamento" [options]="departamentos" placeholder="Seleccione"></p-select>
                   </div>
-
-                  <div class="form-field">
-                    <label for="puesto">Puesto *</label>
-                    <p-select id="puesto" formControlName="puesto"
-                             [options]="puestos" placeholder="Seleccione"
-                             [class.p-invalid]="hasError(laboralForm, 'puesto')">
-                    </p-select>
-                    @if (hasError(laboralForm, 'puesto')) {
-                      <small class="p-error">{{ getErrorMessage(laboralForm, 'puesto') }}</small>
-                    }
-                  </div>
-
-                  <div class="form-field">
-                    <label for="salario">Salario (Lempiras) *</label>
-                    <p-inputNumber id="salario" formControlName="salario"
-                                  mode="currency" currency="HNL" locale="es-HN"
-                                  placeholder="0.00"
-                                  [class.p-invalid]="hasError(laboralForm, 'salario')">
-                    </p-inputNumber>
-                    @if (hasError(laboralForm, 'salario')) {
-                      <small class="p-error">{{ getErrorMessage(laboralForm, 'salario') }}</small>
-                    }
-                  </div>
-
                   <div class="form-field">
                     <label for="fechaIngreso">Fecha de Ingreso *</label>
-                    <div class="card flex justify-center">
-                      <p-datepicker id="fechaIngreso" formControlName="fechaIngreso"
-                                  [showIcon]="true" dateFormat="dd/mm/yy"
-                                  placeholder="Seleccione fecha"
-                                  [class.p-invalid]="hasError(laboralForm, 'fechaIngreso')">
-                      </p-datepicker>
-                    </div>
-                    @if (hasError(laboralForm, 'fechaIngreso')) {
-                      <small class="p-error">{{ getErrorMessage(laboralForm, 'fechaIngreso') }}</small>
-                    }
+                    <p-datepicker id="fechaIngreso" formControlName="fechaIngreso" [showIcon]="true" dateFormat="dd/mm/yy"></p-datepicker>
                   </div>
-
                   <div class="form-field">
-                    <label for="estado">Estado *</label>
-                    <p-select id="estado" formControlName="estado"
-                             [options]="estados" placeholder="Seleccione"
-                             [class.p-invalid]="hasError(laboralForm, 'estado')">
-                    </p-select>
-                    @if (hasError(laboralForm, 'estado')) {
-                      <small class="p-error">{{ getErrorMessage(laboralForm, 'estado') }}</small>
-                    }
+                    <label for="tipoContrato">Tipo de Contrato *</label>
+                    <p-select id="tipoContrato" formControlName="tipoContrato" [options]="tiposContrato" placeholder="Seleccione"></p-select>
+                  </div>
+                  <div class="form-field">
+                    <label for="jornadaLaboral">Jornada Laboral *</label>
+                    <p-select id="jornadaLaboral" formControlName="jornadaLaboral" [options]="jornadas" placeholder="Seleccione"></p-select>
+                  </div>
+                  <div class="form-field">
+                    <label for="jefeInmediato">Jefe Inmediato</label>
+                    <input pInputText id="jefeInmediato" formControlName="jefeInmediato" placeholder="Nombre del supervisor" />
+                  </div>
+                  <div class="form-field">
+                    <label for="numeroEmpleado">Número de Empleado</label>
+                    <input pInputText id="numeroEmpleado" formControlName="numeroEmpleado" placeholder="EMP-0001" />
+                  </div>
+                  <div class="form-field">
+                    <label for="centroTrabajo">Centro de Trabajo / Sede</label>
+                    <input pInputText id="centroTrabajo" formControlName="centroTrabajo" placeholder="Oficina principal, sucursal, etc." />
                   </div>
                 </div>
               </div>
 
-              @if (laboralForm.get('estado')?.value === 'Suspendido') {
-                <div class="form-section">
-                  <h3><i class="pi pi-ban"></i> Detalles de Suspensión</h3>
-                  <div class="form-grid">
-                    <div class="form-field full-width">
-                      <label for="motivoSuspension">Motivo de Suspensión</label>
-                      <textarea pTextarea id="motivoSuspension"
-                               formControlName="motivoSuspension"
-                               rows="3" placeholder="Describa el motivo">
-                      </textarea>
-                    </div>
+              <div class="form-section">
+                <h3><i class="pi pi-money-bill"></i> Información Salarial</h3>
+                <div class="form-grid">
+                  <div class="form-field">
+                    <label for="salarioBase">Salario Base (Lempiras) *</label>
+                    <p-inputNumber id="salarioBase" formControlName="salarioBase" mode="currency" currency="HNL" locale="es-HN"></p-inputNumber>
+                  </div>
+                  <div class="form-field">
+                    <label for="formaPago">Forma de Pago *</label>
+                    <p-select id="formaPago" formControlName="formaPago" [options]="formasPago" placeholder="Seleccione"></p-select>
                   </div>
                 </div>
-              }
-
-              @if (laboralForm.get('estado')?.value === 'Retirado') {
-                <div class="form-section">
-                  <h3><i class="pi pi-sign-out"></i> Detalles de Retiro</h3>
-                  <div class="form-grid">
-                    <div class="form-field full-width">
-                      <label for="motivoRetiro">Motivo de Retiro</label>
-                      <textarea pTextarea id="motivoRetiro"
-                               formControlName="motivoRetiro"
-                               rows="3" placeholder="Describa el motivo">
-                      </textarea>
-                    </div>
-                  </div>
-                </div>
-              }
+              </div>
             </form>
           </div>
         }
       </div>
 
-      <!-- Sección 3: Historial Laboral -->
+      <!-- 3. DOCUMENTOS Y DATOS LEGALES -->
       <div class="collapsible-section">
-        <div class="section-header-collapsible" (click)="showWorkHistory.set(!showWorkHistory())">
-          <div class="tab-header">
-            <i class="pi pi-history"></i>
-            <span>Historial Laboral</span>
-          </div>
-          <i [class]="showWorkHistory() ? 'pi pi-chevron-up' : 'pi pi-chevron-down'"></i>
-        </div>
-
-        @if (showWorkHistory()) {
-          <div class="section-content">
-            <div class="history-section">
-              <div class="section-header">
-                <h3>Experiencia Laboral Previa</h3>
-                <button pButton label="Agregar Experiencia" icon="pi pi-plus"
-                        (click)="openWorkHistoryDialog()">
-                </button>
-              </div>
-
-              @if (workHistoryList.length > 0) {
-                <p-table [value]="workHistoryList" styleClass="p-datatable-sm">
-                  <ng-template pTemplate="header">
-                    <tr>
-                      <th>Empresa</th>
-                      <th>Puesto</th>
-                      <th>Periodo</th>
-                      <th>Acciones</th>
-                    </tr>
-                  </ng-template>
-                  <ng-template pTemplate="body" let-item>
-                    <tr>
-                      <td>{{ item.empresa }}</td>
-                      <td>{{ item.puesto }}</td>
-                      <td>
-                        {{ item.fechaInicio | date:'dd/MM/yyyy' }} - 
-                        {{ item.fechaFin ? (item.fechaFin | date:'dd/MM/yyyy') : 'Actualidad' }}
-                      </td>
-                      <td>
-                        <button pButton icon="pi pi-trash" class="p-button-rounded p-button-danger p-button-text"
-                                (click)="removeWorkHistory(item.id)">
-                        </button>
-                      </td>
-                    </tr>
-                  </ng-template>
-                </p-table>
-              } @else {
-                <div class="empty-state">
-                  <i class="pi pi-briefcase"></i>
-                  <p>No hay historial laboral registrado</p>
-                  <small>Agregue las experiencias laborales previas del empleado</small>
-                </div>
-              }
-            </div>
-          </div>
-        }
-      </div>
-
-      <!-- Sección 4: Historial Académico -->
-      <div class="collapsible-section">
-        <div class="section-header-collapsible" (click)="showAcademicHistory.set(!showAcademicHistory())">
-          <div class="tab-header">
-            <i class="pi pi-book"></i>
-            <span>Historial Académico</span>
-          </div>
-          <i [class]="showAcademicHistory() ? 'pi pi-chevron-up' : 'pi pi-chevron-down'"></i>
-        </div>
-
-        @if (showAcademicHistory()) {
-          <div class="section-content">
-            <div class="history-section">
-              <div class="section-header">
-                <h3>Formación Académica</h3>
-                <button pButton label="Agregar Estudio" icon="pi pi-plus"
-                        (click)="openAcademicHistoryDialog()">
-                </button>
-              </div>
-
-              @if (academicHistoryList.length > 0) {
-                <p-table [value]="academicHistoryList" styleClass="p-datatable-sm">
-                  <ng-template pTemplate="header">
-                    <tr>
-                      <th>Institución</th>
-                      <th>Título</th>
-                      <th>Nivel</th>
-                      <th>Estado</th>
-                      <th>Acciones</th>
-                    </tr>
-                  </ng-template>
-                  <ng-template pTemplate="body" let-item>
-                    <tr>
-                      <td>{{ item.institucion }}</td>
-                      <td>{{ item.titulo }}</td>
-                      <td>{{ item.nivel }}</td>
-                      <td>
-                        <span [class]="'status-badge status-' + item.estado.toLowerCase().replace(' ', '-')">
-                          {{ item.estado }}
-                        </span>
-                      </td>
-                      <td>
-                        <button pButton icon="pi pi-trash" class="p-button-rounded p-button-danger p-button-text"
-                                (click)="removeAcademicHistory(item.id)">
-                        </button>
-                      </td>
-                    </tr>
-                  </ng-template>
-                </p-table>
-              } @else {
-                <div class="empty-state">
-                  <i class="pi pi-graduation-cap"></i>
-                  <p>No hay historial académico registrado</p>
-                  <small>Agregue los estudios realizados por el empleado</small>
-                </div>
-              }
-            </div>
-          </div>
-        }
-      </div>
-
-      <!-- Sección 5: Documentos -->
-      <div class="collapsible-section">
-        <div class="section-header-collapsible" (click)="showDocuments.set(!showDocuments())">
+        <div class="section-header-collapsible" (click)="showDocumentos.set(!showDocumentos())">
           <div class="tab-header">
             <i class="pi pi-file"></i>
-            <span>Documentos</span>
+            <span>3. Documentos y Datos Legales</span>
           </div>
-          <i [class]="showDocuments() ? 'pi pi-chevron-up' : 'pi pi-chevron-down'"></i>
+          <i [class]="showDocumentos() ? 'pi pi-chevron-up' : 'pi pi-chevron-down'"></i>
         </div>
 
-        @if (showDocuments()) {
+        @if (showDocumentos()) {
           <div class="section-content">
-            <div class="documents-section">
-              <div class="upload-area">
-                <p-fileupload 
-                  mode="advanced"
-                  [multiple]="true"
-                  accept="application/pdf,.doc,.docx,image/*"
-                  [maxFileSize]="5000000"
-                  (onSelect)="onDocumentSelect($event)"
-                  chooseLabel="Seleccionar Documentos"
-                  uploadLabel="Subir"
-                  cancelLabel="Cancelar"
-                  [auto]="true"
-                  [showUploadButton]="false"
-                  [showCancelButton]="false">
-                </p-fileupload>
-                <small>Máximo 5MB por archivo. Formatos: PDF, DOC, DOCX, Imágenes</small>
-              </div>
-
-              @if (documentsList.length > 0) {
-                <p-table [value]="documentsList" styleClass="p-datatable-sm">
-                  <ng-template pTemplate="header">
-                    <tr>
-                      <th>Nombre</th>
-                      <th>Tipo</th>
-                      <th>Tamaño</th>
-                      <th>Fecha</th>
-                      <th>Acciones</th>
-                    </tr>
-                  </ng-template>
-                  <ng-template pTemplate="body" let-doc>
-                    <tr>
-                      <td>
-                        <i class="pi pi-file"></i>
-                        {{ doc.nombre }}
-                      </td>
-                      <td>{{ doc.tipo }}</td>
-                      <td>{{ formatFileSize(doc.tamano) }}</td>
-                      <td>{{ doc.fechaSubida | date:'dd/MM/yyyy' }}</td>
-                      <td>
-                        <button pButton icon="pi pi-trash" class="p-button-rounded p-button-danger p-button-text"
-                                (click)="removeDocument(doc.id)">
-                        </button>
-                      </td>
-                    </tr>
-                  </ng-template>
-                </p-table>
-              } @else {
-                <div class="empty-state">
-                  <i class="pi pi-file-pdf"></i>
-                  <p>No hay documentos adjuntos</p>
-                  <small>Suba CV, certificados, contratos y otros documentos</small>
+            <form [formGroup]="documentosForm">
+              <div class="form-section">
+                <h3><i class="pi pi-id-card"></i> Documentación Legal</h3>
+                <div class="form-grid">
+                  <div class="form-field">
+                    <label for="copiaIdentidad">Copia de Identidad / Pasaporte</label>
+                    <input pInputText id="copiaIdentidad" formControlName="copiaIdentidad" placeholder="Número de documento" />
+                  </div>
+                  <div class="form-field">
+                    <label for="numeroSeguroSocial">Número de Seguro Social</label>
+                    <input pInputText id="numeroSeguroSocial" formControlName="numeroSeguroSocial" placeholder="NSS-000000" />
+                  </div>
+                  <div class="form-field">
+                    <label for="numeroRTN">Número de RTN</label>
+                    <input pInputText id="numeroRTN" formControlName="numeroRTN" placeholder="0000-0000-000000" />
+                  </div>
+                  <div class="form-field">
+                    <label for="documentosContrato">Documentos de Contrato</label>
+                    <input pInputText id="documentosContrato" formControlName="documentosContrato" placeholder="Referencia o archivo" />
+                  </div>
+                  <div class="form-field">
+                    <label for="firmasDigitales">Firmas Digitales</label>
+                    <input pInputText id="firmasDigitales" formControlName="firmasDigitales" placeholder="URL o referencia" />
+                  </div>
+                  <div class="form-field">
+                    <label for="permisosLaborales">Permisos Laborales</label>
+                    <input pInputText id="permisosLaborales" formControlName="permisosLaborales" placeholder="Permisos especiales" />
+                  </div>
                 </div>
-              }
-            </div>
+              </div>
+            </form>
           </div>
         }
       </div>
 
-      <!-- Botones de acción -->
+      <!-- 4. INFORMACIÓN BANCARIA -->
+      <div class="collapsible-section">
+        <div class="section-header-collapsible" (click)="showBancaria.set(!showBancaria())">
+          <div class="tab-header">
+            <i class="pi pi-wallet"></i>
+            <span>4. Información Bancaria</span>
+          </div>
+          <i [class]="showBancaria() ? 'pi pi-chevron-up' : 'pi pi-chevron-down'"></i>
+        </div>
+
+        @if (showBancaria()) {
+          <div class="section-content">
+            <form [formGroup]="bancariaForm">
+              <div class="form-section">
+                <h3><i class="pi pi-credit-card"></i> Datos Bancarios</h3>
+                <div class="form-grid">
+                  <div class="form-field">
+                    <label for="nombreBanco">Nombre del Banco</label>
+                    <input pInputText id="nombreBanco" formControlName="nombreBanco" placeholder="Ej: Banco Atlántida" />
+                  </div>
+                  <div class="form-field">
+                    <label for="tipoCuenta">Tipo de Cuenta</label>
+                    <p-select id="tipoCuenta" formControlName="tipoCuenta" [options]="tiposCuenta" placeholder="Seleccione"></p-select>
+                  </div>
+                  <div class="form-field">
+                    <label for="numeroCuenta">Número de Cuenta</label>
+                    <input pInputText id="numeroCuenta" formControlName="numeroCuenta" placeholder="0000000000000000" />
+                  </div>
+                  <div class="form-field">
+                    <label for="nombreTitular">Nombre del Titular</label>
+                    <input pInputText id="nombreTitular" formControlName="nombreTitular" placeholder="Si es diferente al empleado" />
+                  </div>
+                </div>
+              </div>
+            </form>
+          </div>
+        }
+      </div>
+
+      <!-- 5. INFORMACIÓN ACADÉMICA -->
+      <div class="collapsible-section">
+        <div class="section-header-collapsible" (click)="showAcademica.set(!showAcademica())">
+          <div class="tab-header">
+            <i class="pi pi-book"></i>
+            <span>5. Información Académica</span>
+          </div>
+          <i [class]="showAcademica() ? 'pi pi-chevron-up' : 'pi pi-chevron-down'"></i>
+        </div>
+
+        @if (showAcademica()) {
+          <div class="section-content">
+            <form [formGroup]="academicaForm">
+              <div class="form-section">
+                <h3><i class="pi pi-graduation-cap"></i> Formación Académica</h3>
+                <div class="form-grid">
+                  <div class="form-field">
+                    <label for="nivelEstudios">Nivel de Estudios</label>
+                    <p-select id="nivelEstudios" formControlName="nivelEstudios" [options]="nivelesEstudio" placeholder="Seleccione"></p-select>
+                  </div>
+                  <div class="form-field">
+                    <label for="titulosObtenidos">Títulos Obtenidos</label>
+                    <input pInputText id="titulosObtenidos" formControlName="titulosObtenidos" placeholder="Ej: Licenciatura en..." />
+                  </div>
+                  <div class="form-field full-width">
+                    <label for="certificaciones">Certificaciones</label>
+                    <textarea pTextarea id="certificaciones" formControlName="certificaciones" rows="3" placeholder="Liste las certificaciones profesionales"></textarea>
+                  </div>
+                  <div class="form-field full-width">
+                    <label for="cursosCapacitaciones">Cursos y Capacitaciones</label>
+                    <textarea pTextarea id="cursosCapacitaciones" formControlName="cursosCapacitaciones" rows="3" placeholder="Cursos, diplomados, capacitaciones"></textarea>
+                  </div>
+                </div>
+              </div>
+            </form>
+          </div>
+        }
+      </div>
+
+      <!-- 6. HABILIDADES Y EXPERIENCIA -->
+      <div class="collapsible-section">
+        <div class="section-header-collapsible" (click)="showHabilidades.set(!showHabilidades())">
+          <div class="tab-header">
+            <i class="pi pi-star"></i>
+            <span>6. Habilidades y Experiencia</span>
+          </div>
+          <i [class]="showHabilidades() ? 'pi pi-chevron-up' : 'pi pi-chevron-down'"></i>
+        </div>
+
+        @if (showHabilidades()) {
+          <div class="section-content">
+            <form [formGroup]="habilidadesForm">
+              <div class="form-section">
+                <h3><i class="pi pi-cog"></i> Competencias Profesionales</h3>
+                <div class="form-grid">
+                  <div class="form-field">
+                    <label for="añosExperiencia">Años de Experiencia</label>
+                    <p-inputNumber id="añosExperiencia" formControlName="añosExperiencia" [min]="0" [max]="50"></p-inputNumber>
+                  </div>
+                  <div class="form-field">
+                    <label for="idiomas">Idiomas</label>
+                    <input pInputText id="idiomas" formControlName="idiomas" placeholder="Ej: Español (nativo), Inglés (intermedio)" />
+                  </div>
+                  <div class="form-field full-width">
+                    <label for="habilidadesTecnicas">Habilidades Técnicas</label>
+                    <textarea pTextarea id="habilidadesTecnicas" formControlName="habilidadesTecnicas" rows="3" placeholder="Software, herramientas, tecnologías"></textarea>
+                  </div>
+                  <div class="form-field full-width">
+                    <label for="habilidadesBlandas">Habilidades Blandas</label>
+                    <textarea pTextarea id="habilidadesBlandas" formControlName="habilidadesBlandas" rows="3" placeholder="Trabajo en equipo, liderazgo, comunicación"></textarea>
+                  </div>
+                </div>
+              </div>
+            </form>
+          </div>
+        }
+      </div>
+
+      <!-- 7. INFORMACIÓN DE EMERGENCIA -->
+      <div class="collapsible-section">
+        <div class="section-header-collapsible" (click)="showEmergencia.set(!showEmergencia())">
+          <div class="tab-header">
+            <i class="pi pi-exclamation-triangle"></i>
+            <span>7. Información de Emergencia</span>
+          </div>
+          <i [class]="showEmergencia() ? 'pi pi-chevron-up' : 'pi pi-chevron-down'"></i>
+        </div>
+
+        @if (showEmergencia()) {
+          <div class="section-content">
+            <form [formGroup]="emergenciaForm">
+              <div class="form-section">
+                <h3><i class="pi pi-phone"></i> Contacto de Emergencia</h3>
+                <div class="form-grid">
+                  <div class="form-field">
+                    <label for="nombreContacto">Nombre del Contacto</label>
+                    <input pInputText id="nombreContacto" formControlName="nombreContacto" placeholder="Nombre completo" />
+                  </div>
+                  <div class="form-field">
+                    <label for="relacionContacto">Relación</label>
+                    <input pInputText id="relacionContacto" formControlName="relacionContacto" placeholder="Ej: Esposo/a, Madre, Hermano" />
+                  </div>
+                  <div class="form-field">
+                    <label for="telefonoContacto">Teléfono del Contacto</label>
+                    <input pInputText id="telefonoContacto" formControlName="telefonoContacto" placeholder="9999-9999" />
+                  </div>
+                  <div class="form-field full-width">
+                    <label for="direccionContacto">Dirección del Contacto</label>
+                    <input pInputText id="direccionContacto" formControlName="direccionContacto" placeholder="Dirección completa" />
+                  </div>
+                </div>
+              </div>
+            </form>
+          </div>
+        }
+      </div>
+
+      <!-- 8. DATOS OPCIONALES -->
+      <div class="collapsible-section">
+        <div class="section-header-collapsible" (click)="showOpcionales.set(!showOpcionales())">
+          <div class="tab-header">
+            <i class="pi pi-info-circle"></i>
+            <span>8. Datos Opcionales</span>
+          </div>
+          <i [class]="showOpcionales() ? 'pi pi-chevron-up' : 'pi pi-chevron-down'"></i>
+        </div>
+
+        @if (showOpcionales()) {
+          <div class="section-content">
+            <form [formGroup]="opcionalesForm">
+              <div class="form-section">
+                <h3><i class="pi pi-ellipsis-h"></i> Información Adicional</h3>
+                <div class="form-grid">
+                  <div class="form-field">
+                    <label for="numeroUniforme">Número de Uniforme</label>
+                    <input pInputText id="numeroUniforme" formControlName="numeroUniforme" placeholder="Ej: 15" />
+                  </div>
+                  <div class="form-field">
+                    <label for="talla">Talla</label>
+                    <input pInputText id="talla" formControlName="talla" placeholder="XS, S, M, L, XL, XXL" />
+                  </div>
+                  <div class="form-field">
+                    <label for="tipoTransporte">Tipo de Transporte</label>
+                    <input pInputText id="tipoTransporte" formControlName="tipoTransporte" placeholder="Vehículo asignado, transporte público" />
+                  </div>
+                  <div class="form-field full-width">
+                    <label for="beneficiosAsignados">Beneficios Asignados</label>
+                    <textarea pTextarea id="beneficiosAsignados" formControlName="beneficiosAsignados" rows="2" placeholder="Bonificaciones, vales, seguros"></textarea>
+                  </div>
+                  <div class="form-field full-width">
+                    <label for="politicasFirmadas">Políticas Firmadas</label>
+                    <textarea pTextarea id="politicasFirmadas" formControlName="politicasFirmadas" rows="2" placeholder="Código de ética, reglamento interno"></textarea>
+                  </div>
+                  <div class="form-field full-width">
+                    <label for="observaciones">Observaciones Internas</label>
+                    <textarea pTextarea id="observaciones" formControlName="observaciones" rows="3" placeholder="Notas adicionales"></textarea>
+                  </div>
+                </div>
+              </div>
+            </form>
+          </div>
+        }
+      </div>
+
+      <!-- 9. INFORMACIÓN DEL SISTEMA -->
+      <div class="collapsible-section">
+        <div class="section-header-collapsible" (click)="showSistema.set(!showSistema())">
+          <div class="tab-header">
+            <i class="pi pi-desktop"></i>
+            <span>9. Acceso al Sistema</span>
+          </div>
+          <i [class]="showSistema() ? 'pi pi-chevron-up' : 'pi pi-chevron-down'"></i>
+        </div>
+
+        @if (showSistema()) {
+          <div class="section-content">
+            <form [formGroup]="sistemaForm">
+              <div class="form-section">
+                <h3><i class="pi pi-key"></i> Credenciales de Acceso</h3>
+                <div class="form-grid">
+                  <div class="form-field">
+                    <label for="usuario">Usuario *</label>
+                    <input pInputText id="usuario" formControlName="usuario" placeholder="nombre.apellido" />
+                  </div>
+                  <div class="form-field">
+                    <label for="contrasena">Contraseña Temporal *</label>
+                    <p-password id="contrasena" formControlName="contrasena" placeholder="Mínimo 6 caracteres" [toggleMask]="true"></p-password>
+                  </div>
+                  <div class="form-field">
+                    <label for="rol">Rol en el Sistema *</label>
+                    <p-select id="rol" formControlName="rol" [options]="roles" placeholder="Seleccione"></p-select>
+                  </div>
+                </div>
+              </div>
+            </form>
+          </div>
+        }
+      </div>
+
+      <!-- BOTONES DE ACCIÓN -->
       <div class="form-actions">
-        <button pButton type="button" label="Cancelar" icon="pi pi-times"
-                class="p-button-secondary" (click)="onCancel()">
-        </button>
-        <button pButton type="submit" label="Guardar Empleado" icon="pi pi-check"
-                (click)="onSubmit()">
-        </button>
+        <button pButton type="button" label="Cancelar" icon="pi pi-times" class="p-button-secondary" (click)="onCancel()"></button>
+        <button pButton type="submit" label="Guardar Empleado" icon="pi pi-check" (click)="onSubmit()"></button>
       </div>
     </p-card>
   </div>
 </div>
-
-<!-- Dialog para Historial Laboral -->
-<p-dialog header="Agregar Experiencia Laboral" [(visible)]="showWorkHistoryDialog"
-          [modal]="true" [style]="{width: '600px'}">
-  <form [formGroup]="workHistoryForm">
-    <div class="dialog-form">
-      <div class="form-field">
-        <label for="empresa">Empresa *</label>
-        <input pInputText id="empresa" formControlName="empresa"
-               placeholder="Nombre de la empresa" />
-      </div>
-
-      <div class="form-field">
-        <label for="puestoHistorial">Puesto *</label>
-        <input pInputText id="puestoHistorial" formControlName="puesto"
-               placeholder="Cargo desempeñado" />
-      </div>
-
-      <div class="form-field">
-        <label for="fechaInicioWork">Fecha Inicio *</label>
-        <p-datepicker id="fechaInicioWork" formControlName="fechaInicio"
-                    [showIcon]="true" dateFormat="dd/mm/yy">
-        </p-datepicker>
-      </div>
-
-      <div class="form-field">
-        <label for="fechaFinWork">Fecha Fin</label>
-        <p-datepicker id="fechaFinWork" formControlName="fechaFin"
-                    [showIcon]="true" dateFormat="dd/mm/yy">
-        </p-datepicker>
-        <small>Deje en blanco si aún trabaja aquí</small>
-      </div>
-
-      <div class="form-field full-width">
-        <label for="descripcionWork">Descripción</label>
-        <textarea pTextarea id="descripcionWork" formControlName="descripcion"
-                 rows="3" placeholder="Describa sus responsabilidades">
-        </textarea>
-      </div>
-
-      <div class="form-field full-width">
-        <label for="motivoSalidaWork">Motivo de Salida</label>
-        <input pInputText id="motivoSalidaWork" formControlName="motivoSalida"
-               placeholder="Ej: Mejor oferta, cambio de ciudad" />
-      </div>
-    </div>
-  </form>
-
-  <ng-template pTemplate="footer">
-    <button pButton label="Cancelar" icon="pi pi-times" class="p-button-text"
-            (click)="showWorkHistoryDialog.set(false)">
-    </button>
-    <button pButton label="Agregar" icon="pi pi-check"
-            (click)="addWorkHistory()" [disabled]="!workHistoryForm.valid">
-    </button>
-  </ng-template>
-</p-dialog>
-
-<!-- Dialog para Historial Académico -->
-<p-dialog header="Agregar Formación Académica" [(visible)]="showAcademicHistoryDialog"
-          [modal]="true" [style]="{width: '600px'}">
-  <form [formGroup]="academicHistoryForm">
-    <div class="dialog-form">
-      <div class="form-field">
-        <label for="institucion">Institución *</label>
-        <input pInputText id="institucion" formControlName="institucion"
-               placeholder="Nombre de la institución" />
-      </div>
-
-      <div class="form-field">
-        <label for="titulo">Título *</label>
-        <input pInputText id="titulo" formControlName="titulo"
-               placeholder="Título obtenido o en curso" />
-      </div>
-
-      <div class="form-field">
-        <label for="nivelAcademico">Nivel *</label>
-        <p-select id="nivelAcademico" formControlName="nivel"
-                 [options]="nivelesAcademicos" placeholder="Seleccione">
-        </p-select>
-      </div>
-
-      <div class="form-field">
-        <label for="estadoAcademico">Estado *</label>
-        <p-select id="estadoAcademico" formControlName="estado"
-                 [options]="estadosAcademicos" placeholder="Seleccione">
-        </p-select>
-      </div>
-
-      <div class="form-field">
-        <label for="fechaInicioAcad">Fecha Inicio *</label>
-        <p-datepicker id="fechaInicioAcad" formControlName="fechaInicio"
-                    [showIcon]="true" dateFormat="dd/mm/yy">
-        </p-datepicker>
-      </div>
-
-      <div class="form-field">
-        <label for="fechaFinAcad">Fecha Fin</label>
-        <p-datepicker id="fechaFinAcad" formControlName="fechaFin"
-                    [showIcon]="true" dateFormat="dd/mm/yy">
-        </p-datepicker>
-        <small>Deje en blanco si aún está cursando</small>
-      </div>
-    </div>
-  </form>
-
-  <ng-template pTemplate="footer">
-    <button pButton label="Cancelar" icon="pi pi-times" class="p-button-text"
-            (click)="showAcademicHistoryDialog.set(false)">
-    </button>
-    <button pButton label="Agregar" icon="pi pi-check"
-            (click)="addAcademicHistory()" [disabled]="!academicHistoryForm.valid">
-    </button>
-  </ng-template>
-</p-dialog>

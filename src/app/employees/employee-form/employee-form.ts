@@ -1,22 +1,21 @@
 import { Component, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router, RouterLink } from '@angular/router';
-import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, FormArray } from '@angular/forms';
+import { Router } from '@angular/router';
+import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { CardModule } from 'primeng/card';
 import { InputTextModule } from 'primeng/inputtext';
 import { InputNumberModule } from 'primeng/inputnumber';
 import { SelectModule } from 'primeng/select';
 import { DatePickerModule } from 'primeng/datepicker';
 import { ButtonModule } from 'primeng/button';
-import { MessageModule } from 'primeng/message';
 import { ToastModule } from 'primeng/toast';
 import { FileUploadModule } from 'primeng/fileupload';
-import { ImageModule } from 'primeng/image';
 import { TableModule } from 'primeng/table';
 import { DialogModule } from 'primeng/dialog';
 import { TextareaModule } from 'primeng/textarea';
-import { MessageService, SharedModule } from 'primeng/api';
-import { EmployeeService, WorkHistory, AcademicHistory, DocumentFile } from '../../services/employee.service';
+import { MessageService } from 'primeng/api';
+import { PasswordModule } from 'primeng/password';
+import { EmployeeService } from '../../services/employee.service';
 
 @Component({
   selector: 'app-employee-form',
@@ -30,14 +29,12 @@ import { EmployeeService, WorkHistory, AcademicHistory, DocumentFile } from '../
     SelectModule,
     DatePickerModule,
     ButtonModule,
-    MessageModule,
     ToastModule,
     FileUploadModule,
-    ImageModule,
     TableModule,
     DialogModule,
     TextareaModule,
-    SharedModule
+    PasswordModule
   ],
   providers: [MessageService],
   templateUrl: './employee-form.html',
@@ -49,32 +46,46 @@ export class EmployeeForm {
   private messageService = inject(MessageService);
   private router = inject(Router);
 
-  // Forms
-  personalForm: FormGroup;
-  laboralForm: FormGroup;
-  
-  // Datos
+  // Formularios por sección
+  personalForm!: FormGroup;
+  laboralForm!: FormGroup;
+  documentosForm!: FormGroup;
+  bancariaForm!: FormGroup;
+  academicaForm!: FormGroup;
+  habilidadesForm!: FormGroup;
+  emergenciaForm!: FormGroup;
+  opcionalesForm!: FormGroup;
+  sistemaForm!: FormGroup;
+
+  // Signals para secciones colapsables
+  showPersonal = signal(true);
+  showLaboral = signal(false);
+  showDocumentos = signal(false);
+  showBancaria = signal(false);
+  showAcademica = signal(false);
+  showHabilidades = signal(false);
+  showEmergencia = signal(false);
+  showOpcionales = signal(false);
+  showSistema = signal(false);
+
   employeePhoto = signal<string>('');
-  workHistoryList: WorkHistory[] = [];
-  academicHistoryList: AcademicHistory[] = [];
-  documentsList: DocumentFile[] = [];
-  
-  // Dialogs
-  showWorkHistoryDialog = signal(false);
-  showAcademicHistoryDialog = signal(false);
-  workHistoryForm: FormGroup;
-  academicHistoryForm: FormGroup;
-  
-  // Secciones colapsables
-  showPersonalData = signal(true);
-  showLaboralData = signal(false);
-  showWorkHistory = signal(false);
-  showAcademicHistory = signal(false);
-  showDocuments = signal(false);
-  
   submitted = false;
 
   // Opciones de Select
+  generos = [
+    { label: 'Masculino', value: 'Masculino' },
+    { label: 'Femenino', value: 'Femenino' },
+    { label: 'Otro', value: 'Otro' }
+  ];
+
+  estadosCiviles = [
+    { label: 'Soltero/a', value: 'Soltero' },
+    { label: 'Casado/a', value: 'Casado' },
+    { label: 'Divorciado/a', value: 'Divorciado' },
+    { label: 'Viudo/a', value: 'Viudo' },
+    { label: 'Unión Libre', value: 'Union Libre' }
+  ];
+
   departamentos = [
     { label: 'Tecnología', value: 'Tecnología' },
     { label: 'Recursos Humanos', value: 'Recursos Humanos' },
@@ -95,26 +106,35 @@ export class EmployeeForm {
     { label: 'Ejecutivo de Ventas', value: 'Ejecutivo de Ventas' }
   ];
 
-  estados = [
-    { label: 'Activo', value: 'Activo' },
-    { label: 'Suspendido', value: 'Suspendido' },
-    { label: 'Retirado', value: 'Retirado' }
+  tiposContrato = [
+    { label: 'Indefinido', value: 'Indefinido' },
+    { label: 'Temporal', value: 'Temporal' },
+    { label: 'Por Proyecto', value: 'Por Proyecto' },
+    { label: 'Por Servicios', value: 'Por Servicios' },
+    { label: 'Prácticas', value: 'Prácticas' }
   ];
 
-  generos = [
-    { label: 'Masculino', value: 'Masculino' },
-    { label: 'Femenino', value: 'Femenino' },
-    { label: 'Otro', value: 'Otro' }
+  jornadas = [
+    { label: 'Tiempo Completo', value: 'Tiempo Completo' },
+    { label: 'Medio Tiempo', value: 'Medio Tiempo' },
+    { label: 'Por Horas', value: 'Por Horas' },
+    { label: 'Mixta', value: 'Mixta' }
   ];
 
-  estadosCiviles = [
-    { label: 'Soltero', value: 'Soltero' },
-    { label: 'Casado', value: 'Casado' },
-    { label: 'Divorciado', value: 'Divorciado' },
-    { label: 'Viudo', value: 'Viudo' }
+  formasPago = [
+    { label: 'Semanal', value: 'Semanal' },
+    { label: 'Quincenal', value: 'Quincenal' },
+    { label: 'Mensual', value: 'Mensual' },
+    { label: 'Por Hora', value: 'Por Hora' }
   ];
 
-  nivelesAcademicos = [
+  tiposCuenta = [
+    { label: 'Ahorros', value: 'Ahorros' },
+    { label: 'Corriente', value: 'Corriente' },
+    { label: 'Nómina', value: 'Nómina' }
+  ];
+
+  nivelesEstudio = [
     { label: 'Primaria', value: 'Primaria' },
     { label: 'Secundaria', value: 'Secundaria' },
     { label: 'Técnico', value: 'Técnico' },
@@ -123,72 +143,104 @@ export class EmployeeForm {
     { label: 'Doctorado', value: 'Doctorado' }
   ];
 
-  estadosAcademicos = [
-    { label: 'En Curso', value: 'En Curso' },
-    { label: 'Completado', value: 'Completado' },
-    { label: 'Abandonado', value: 'Abandonado' }
-  ];
-
-  tiposDocumento = [
-    { label: 'CV', value: 'CV' },
-    { label: 'Certificado', value: 'Certificado' },
-    { label: 'Diploma', value: 'Diploma' },
-    { label: 'Contrato', value: 'Contrato' },
-    { label: 'Identificación', value: 'Identificación' },
-    { label: 'Otro', value: 'Otro' }
+  roles = [
+    { label: 'Empleado', value: 'Empleado' },
+    { label: 'Supervisor', value: 'Supervisor' },
+    { label: 'RRHH', value: 'RRHH' },
+    { label: 'Admin', value: 'Admin' }
   ];
 
   constructor() {
-    // Formulario de datos personales
+    // 1. Información Personal
     this.personalForm = this.fb.group({
-      nombre: ['', [Validators.required, Validators.minLength(2)]],
-      apellido: ['', [Validators.required, Validators.minLength(2)]],
-      email: ['', [Validators.required, Validators.email]],
-      telefono: ['', [Validators.required]],
-      cedula: [''],
-      direccion: [''],
+      nombreCompleto: ['', [Validators.required, Validators.minLength(3)]],
+      numeroIdentidad: ['', Validators.required],
       fechaNacimiento: [null],
       genero: [''],
       estadoCivil: [''],
       nacionalidad: ['Hondureña'],
-      contactoEmergenciaNombre: [''],
-      contactoEmergenciaTelefono: [''],
-      contactoEmergenciaRelacion: ['']
+      direccion: [''],
+      telefonoPersonal: ['', Validators.required],
+      telefonoCasa: [''],
+      telefonoOficina: [''],
+      correoPersonal: ['', [Validators.required, Validators.email]],
+      foto: ['']
     });
 
-    // Formulario laboral
+    // 2. Información Laboral
     this.laboralForm = this.fb.group({
-      puesto: ['', Validators.required],
+      cargo: ['', Validators.required],
       departamento: ['', Validators.required],
-      salario: [null, [Validators.required, Validators.min(0)]],
       fechaIngreso: [new Date(), Validators.required],
-      estado: ['Activo', Validators.required],
-      motivoSuspension: [''],
-      motivoRetiro: ['']
+      tipoContrato: ['', Validators.required],
+      jornadaLaboral: ['', Validators.required],
+      jefeInmediato: [''],
+      numeroEmpleado: [''],
+      salarioBase: [null, [Validators.required, Validators.min(0)]],
+      formaPago: ['', Validators.required],
+      centroTrabajo: ['']
     });
 
-    // Formulario para historial laboral
-    this.workHistoryForm = this.fb.group({
-      empresa: ['', Validators.required],
-      puesto: ['', Validators.required],
-      fechaInicio: [null, Validators.required],
-      fechaFin: [null],
-      descripcion: [''],
-      motivoSalida: ['']
+    // 3. Documentos y Datos Legales
+    this.documentosForm = this.fb.group({
+      copiaIdentidad: [''],
+      numeroSeguroSocial: [''],
+      numeroRTN: [''],
+      documentosContrato: [''],
+      firmasDigitales: [''],
+      permisosLaborales: ['']
     });
 
-    // Formulario para historial académico
-    this.academicHistoryForm = this.fb.group({
-      institucion: ['', Validators.required],
-      titulo: ['', Validators.required],
-      nivel: ['', Validators.required],
-      fechaInicio: [null, Validators.required],
-      fechaFin: [null],
-      estado: ['Completado', Validators.required]
+    // 4. Información Bancaria
+    this.bancariaForm = this.fb.group({
+      nombreBanco: [''],
+      tipoCuenta: [''],
+      numeroCuenta: [''],
+      nombreTitular: ['']
+    });
+
+    // 5. Información Académica
+    this.academicaForm = this.fb.group({
+      nivelEstudios: [''],
+      titulosObtenidos: [''],
+      certificaciones: [''],
+      cursosCapacitaciones: ['']
+    });
+
+    // 6. Habilidades y Experiencia
+    this.habilidadesForm = this.fb.group({
+      añosExperiencia: [null],
+      idiomas: [''],
+      habilidadesTecnicas: [''],
+      habilidadesBlandas: ['']
+    });
+
+    // 7. Información de Emergencia
+    this.emergenciaForm = this.fb.group({
+      nombreContacto: [''],
+      relacionContacto: [''],
+      telefonoContacto: [''],
+      direccionContacto: ['']
+    });
+
+    // 8. Datos Opcionales
+    this.opcionalesForm = this.fb.group({
+      numeroUniforme: [''],
+      talla: [''],
+      observaciones: [''],
+      beneficiosAsignados: [''],
+      politicasFirmadas: [''],
+      tipoTransporte: ['']
+    });
+
+    // 9. Información del Sistema
+    this.sistemaForm = this.fb.group({
+      usuario: ['', Validators.required],
+      contrasena: ['', [Validators.required, Validators.minLength(6)]],
+      rol: ['Empleado', Validators.required]
     });
   }
 
-  // Manejo de foto
   onPhotoSelect(event: any) {
     const file = event.files[0];
     if (file) {
@@ -201,135 +253,34 @@ export class EmployeeForm {
       this.messageService.add({
         severity: 'success',
         summary: 'Foto cargada',
-        detail: 'La foto se ha cargado correctamente',
-        life: 2000
+        detail: 'La foto se ha cargado correctamente'
       });
     }
   }
 
-  // Historial laboral
-  openWorkHistoryDialog() {
-    this.workHistoryForm.reset();
-    this.showWorkHistoryDialog.set(true);
-  }
-
-  addWorkHistory() {
-    if (this.workHistoryForm.valid) {
-      const workHistory: WorkHistory = {
-        id: Date.now(),
-        ...this.workHistoryForm.value
-      };
-      this.workHistoryList.push(workHistory);
-      this.showWorkHistoryDialog.set(false);
-      this.messageService.add({
-        severity: 'success',
-        summary: 'Agregado',
-        detail: 'Historial laboral agregado',
-        life: 2000
-      });
-    }
-  }
-
-  removeWorkHistory(id: number) {
-    this.workHistoryList = this.workHistoryList.filter(w => w.id !== id);
-  }
-
-  // Historial académico
-  openAcademicHistoryDialog() {
-    this.academicHistoryForm.reset({ estado: 'Completado' });
-    this.showAcademicHistoryDialog.set(true);
-  }
-
-  addAcademicHistory() {
-    if (this.academicHistoryForm.valid) {
-      const academicHistory: AcademicHistory = {
-        id: Date.now(),
-        ...this.academicHistoryForm.value
-      };
-      this.academicHistoryList.push(academicHistory);
-      this.showAcademicHistoryDialog.set(false);
-      this.messageService.add({
-        severity: 'success',
-        summary: 'Agregado',
-        detail: 'Historial académico agregado',
-        life: 2000
-      });
-    }
-  }
-
-  removeAcademicHistory(id: number) {
-    this.academicHistoryList = this.academicHistoryList.filter(a => a.id !== id);
-  }
-
-  // Documentos
-  onDocumentSelect(event: any) {
-    for (let file of event.files) {
-      const document: DocumentFile = {
-        id: Date.now() + Math.random(),
-        nombre: file.name,
-        tipo: 'Otro',
-        url: '#',
-        fechaSubida: new Date(),
-        tamano: file.size
-      };
-      this.documentsList.push(document);
-    }
-    
-    this.messageService.add({
-      severity: 'success',
-      summary: 'Documentos cargados',
-      detail: `${event.files.length} documento(s) cargado(s)`,
-      life: 2000
-    });
-  }
-
-  removeDocument(id: number) {
-    this.documentsList = this.documentsList.filter(d => d.id !== id);
-  }
-
-  formatFileSize(bytes: number): string {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
-  }
-
-  // Submit final
   onSubmit() {
     this.submitted = true;
 
-    if (this.personalForm.valid && this.laboralForm.valid) {
-      const personalData = this.personalForm.value;
-      const laboralData = this.laboralForm.value;
-      
-      const contactoEmergencia = personalData.contactoEmergenciaNombre ? {
-        nombre: personalData.contactoEmergenciaNombre,
-        telefono: personalData.contactoEmergenciaTelefono,
-        relacion: personalData.contactoEmergenciaRelacion
-      } : undefined;
-
+    if (this.personalForm.valid && this.laboralForm.valid && this.sistemaForm.valid) {
       const employeeData = {
-        ...personalData,
-        ...laboralData,
-        foto: this.employeePhoto() || undefined,
-        contactoEmergencia,
-        historialLaboral: this.workHistoryList,
-        historialAcademico: this.academicHistoryList,
-        documentos: this.documentsList
+        ...this.personalForm.value,
+        ...this.laboralForm.value,
+        ...this.documentosForm.value,
+        ...this.bancariaForm.value,
+        ...this.academicaForm.value,
+        ...this.habilidadesForm.value,
+        ...this.emergenciaForm.value,
+        ...this.opcionalesForm.value,
+        ...this.sistemaForm.value,
+        foto: this.employeePhoto()
       };
 
-      // Eliminar campos del contacto de emergencia del objeto principal
-      delete employeeData.contactoEmergenciaNombre;
-      delete employeeData.contactoEmergenciaTelefono;
-      delete employeeData.contactoEmergenciaRelacion;
-
-      this.employeeService.addEmployee(employeeData);
+      console.log('Datos del empleado:', employeeData);
 
       this.messageService.add({
         severity: 'success',
         summary: 'Éxito',
-        detail: `Empleado ${personalData.nombre} ${personalData.apellido} creado correctamente`,
+        detail: 'Empleado creado correctamente',
         life: 3000
       });
 
@@ -340,16 +291,8 @@ export class EmployeeForm {
       this.messageService.add({
         severity: 'error',
         summary: 'Error',
-        detail: 'Complete todos los campos requeridos en Datos Personales e Información Laboral',
+        detail: 'Complete todos los campos requeridos',
         life: 4000
-      });
-
-      // Marcar todos los campos como tocados
-      Object.keys(this.personalForm.controls).forEach(key => {
-        this.personalForm.get(key)?.markAsTouched();
-      });
-      Object.keys(this.laboralForm.controls).forEach(key => {
-        this.laboralForm.get(key)?.markAsTouched();
       });
     }
   }
