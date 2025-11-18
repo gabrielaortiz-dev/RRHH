@@ -295,6 +295,136 @@ async def get_departamentos():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error al obtener departamentos: {str(e)}")
 
+@app.post("/api/departamentos", status_code=status.HTTP_201_CREATED, tags=["Departamentos"])
+async def create_departamento(departamento: DepartamentoCreate):
+    """Crear un nuevo departamento"""
+    try:
+        db = get_db()
+        
+        # Verificar si el nombre ya existe
+        existing = db.fetch_one("SELECT id FROM departamentos WHERE nombre = ?", (departamento.nombre,))
+        if existing:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"El departamento '{departamento.nombre}' ya existe"
+            )
+        
+        # Insertar el nuevo departamento
+        cursor = db.execute_query(
+            """INSERT INTO departamentos (nombre, descripcion) 
+               VALUES (?, ?)""",
+            (departamento.nombre, departamento.descripcion)
+        )
+        
+        # Obtener el departamento creado
+        nuevo_departamento = db.fetch_one(
+            "SELECT * FROM departamentos WHERE id = ?",
+            (cursor.lastrowid,)
+        )
+        
+        return {
+            "success": True,
+            "message": "Departamento creado exitosamente",
+            "data": nuevo_departamento
+        }
+    except HTTPException:
+        raise
+    except sqlite3.IntegrityError as e:
+        raise HTTPException(status_code=400, detail=f"Error de integridad: {str(e)}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al crear departamento: {str(e)}")
+
+@app.put("/api/departamentos/{departamento_id}", tags=["Departamentos"])
+async def update_departamento(departamento_id: int, departamento: DepartamentoUpdate):
+    """Actualizar un departamento existente"""
+    try:
+        db = get_db()
+        
+        # Verificar si el departamento existe
+        existing = db.fetch_one("SELECT id FROM departamentos WHERE id = ?", (departamento_id,))
+        if not existing:
+            raise HTTPException(
+                status_code=404, 
+                detail=f"Departamento con ID {departamento_id} no encontrado"
+            )
+        
+        # Construir la consulta de actualización dinámica
+        updates = []
+        params = []
+        
+        if departamento.nombre is not None:
+            # Verificar que el nombre no esté en uso por otro departamento
+            nombre_check = db.fetch_one(
+                "SELECT id FROM departamentos WHERE nombre = ? AND id != ?", 
+                (departamento.nombre, departamento_id)
+            )
+            if nombre_check:
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"El nombre '{departamento.nombre}' ya está en uso"
+                )
+            updates.append("nombre = ?")
+            params.append(departamento.nombre)
+        if departamento.descripcion is not None:
+            updates.append("descripcion = ?")
+            params.append(departamento.descripcion)
+        if departamento.activo is not None:
+            updates.append("activo = ?")
+            params.append(1 if departamento.activo else 0)
+        
+        if not updates:
+            raise HTTPException(
+                status_code=400, 
+                detail="No se proporcionaron datos para actualizar"
+            )
+        
+        # Ejecutar la actualización
+        params.append(departamento_id)
+        query = f"UPDATE departamentos SET {', '.join(updates)} WHERE id = ?"
+        db.execute_query(query, tuple(params))
+        
+        # Obtener el departamento actualizado
+        departamento_actualizado = db.fetch_one(
+            "SELECT * FROM departamentos WHERE id = ?",
+            (departamento_id,)
+        )
+        
+        return {
+            "success": True,
+            "message": "Departamento actualizado exitosamente",
+            "data": departamento_actualizado
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al actualizar departamento: {str(e)}")
+
+@app.delete("/api/departamentos/{departamento_id}", tags=["Departamentos"])
+async def delete_departamento(departamento_id: int):
+    """Eliminar (desactivar) un departamento"""
+    try:
+        db = get_db()
+        
+        # Verificar si el departamento existe
+        departamento = db.fetch_one("SELECT id, nombre FROM departamentos WHERE id = ?", (departamento_id,))
+        if not departamento:
+            raise HTTPException(
+                status_code=404, 
+                detail=f"Departamento con ID {departamento_id} no encontrado"
+            )
+        
+        # Desactivar el departamento en lugar de eliminarlo
+        db.execute_query("UPDATE departamentos SET activo = 0 WHERE id = ?", (departamento_id,))
+        
+        return {
+            "success": True,
+            "message": f"Departamento '{departamento['nombre']}' desactivado exitosamente"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al eliminar departamento: {str(e)}")
+
 # ============================================================================
 #                           ENDPOINTS DE EMPLEADOS
 # ============================================================================

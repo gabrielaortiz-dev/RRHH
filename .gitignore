@@ -47,3 +47,28 @@ Thumbs.db
 *.tmp
 *.bak
 
+# Archivos del sistema del usuario
+AppData/
+Contacts/
+Desktop/
+Documents/
+Downloads/
+Favorites/
+IntelGraphicsProfiles/
+Links/
+Music/
+NTUSER.DAT*
+ntuser.*
+OneDrive*/
+Pictures/
+Saved Games/
+Searches/
+Videos/
+.angular-config.json
+.cursor/
+.dotnet/
+.node_repl_history
+.rustup/
+source/
+node_modules/
+
