@@ -1,4 +1,6 @@
 import { Injectable, signal, inject } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { catchError, map, of } from 'rxjs';
 import { NotificationService } from './notification.service';
 import { NotificationType, NotificationModule } from '../models/notification.model';
 
@@ -17,47 +19,58 @@ export interface Department {
   providedIn: 'root'
 })
 export class DepartmentService {
+  private http = inject(HttpClient);
   private notificationService = inject(NotificationService);
+  private apiUrl = 'http://localhost:8000/api';
   
-  private departments = signal<Department[]>([
-    {
-      id: 1,
-      nombre: 'Tecnología',
-      descripcion: 'Departamento encargado del desarrollo y mantenimiento de sistemas',
-      gerente: 'Juan Pérez',
-      numeroEmpleados: 3,
-      presupuesto: 250000,
-      estado: 'Activo',
-      fechaCreacion: new Date('2020-01-15')
-    },
-    {
-      id: 2,
-      nombre: 'Recursos Humanos',
-      descripcion: 'Gestión del talento humano y desarrollo organizacional',
-      gerente: 'María García',
-      numeroEmpleados: 1,
-      presupuesto: 150000,
-      estado: 'Activo',
-      fechaCreacion: new Date('2019-06-20')
-    },
-    {
-      id: 3,
-      nombre: 'Finanzas',
-      descripcion: 'Administración financiera y contabilidad',
-      gerente: 'Carlos Rodríguez',
-      numeroEmpleados: 1,
-      presupuesto: 180000,
-      estado: 'Activo',
-      fechaCreacion: new Date('2019-03-10')
-    }
-  ]);
+  private departments = signal<Department[]>([]);
+  private loaded = false;
 
-  private nextId = 4;
+  constructor() {
+    this.loadDepartments();
+  }
+
+  /**
+   * Carga los departamentos desde el backend
+   */
+  private loadDepartments(): void {
+    if (this.loaded) return;
+    
+    this.http.get<{ success: boolean; data: any[] }>(`${this.apiUrl}/departamentos`)
+      .pipe(
+        map(response => {
+          if (response.success && response.data) {
+            return response.data.map((dept: any): Department => ({
+              id: dept.id,
+              nombre: dept.nombre,
+              descripcion: dept.descripcion || '',
+              gerente: 'Sin asignar', // Campo no disponible en backend
+              numeroEmpleados: 0, // Se calculará después
+              presupuesto: 0, // Campo no disponible en backend
+              estado: (dept.activo === 1 ? 'Activo' : 'Inactivo') as 'Activo' | 'Inactivo',
+              fechaCreacion: new Date(dept.fecha_creacion || Date.now())
+            }));
+          }
+          return [];
+        }),
+        catchError(error => {
+          console.error('Error al cargar departamentos:', error);
+          return [];
+        })
+      )
+      .subscribe(departments => {
+        this.departments.set(departments);
+        this.loaded = true;
+      });
+  }
 
   /**
    * Obtiene todos los departamentos
    */
   getDepartments() {
+    if (!this.loaded) {
+      this.loadDepartments();
+    }
     return this.departments.asReadonly();
   }
 
@@ -86,56 +99,102 @@ export class DepartmentService {
    * Agrega un nuevo departamento
    */
   addDepartment(department: Omit<Department, 'id'>): Department {
-    const newDepartment: Department = {
-      ...department,
-      id: this.nextId++
+    const newDepartmentData = {
+      nombre: department.nombre,
+      descripcion: department.descripcion
     };
-    this.departments.update(depts => [...depts, newDepartment]);
-    
-    // Notificar al administrador sobre el nuevo departamento
-    this.notificationService.createNotification({
-      userId: 'admin@rrhh.com',
-      type: NotificationType.SUCCESS,
-      title: 'Nuevo Departamento Creado',
-      message: `El departamento "${newDepartment.nombre}" ha sido creado exitosamente`,
-      module: NotificationModule.DEPARTMENTS,
-      moduleId: newDepartment.id.toString(),
-      redirectUrl: `/departamentos`
-    });
-    
-    return newDepartment;
+
+    this.http.post<{ success: boolean; data: any }>(
+      `${this.apiUrl}/departamentos`,
+      newDepartmentData
+    ).pipe(
+      map(response => {
+        if (response.success && response.data) {
+          const newDepartment: Department = {
+            id: response.data.id,
+            nombre: response.data.nombre,
+            descripcion: response.data.descripcion || '',
+            gerente: department.gerente || 'Sin asignar',
+            numeroEmpleados: department.numeroEmpleados || 0,
+            presupuesto: department.presupuesto || 0,
+            estado: response.data.activo === 1 ? 'Activo' : 'Inactivo',
+            fechaCreacion: new Date(response.data.fecha_creacion || Date.now())
+          };
+          
+          this.departments.update(depts => [...depts, newDepartment]);
+          
+          // Notificar al administrador sobre el nuevo departamento
+          this.notificationService.createNotification({
+            userId: 'admin@rrhh.com',
+            type: NotificationType.SUCCESS,
+            title: 'Nuevo Departamento Creado',
+            message: `El departamento "${newDepartment.nombre}" ha sido creado exitosamente`,
+            module: NotificationModule.DEPARTMENTS,
+            moduleId: newDepartment.id.toString(),
+            redirectUrl: `/departamentos`
+          });
+          
+          return newDepartment;
+        }
+        throw new Error('Error al crear departamento');
+      }),
+      catchError(error => {
+        console.error('Error al crear departamento:', error);
+        throw error;
+      })
+    ).subscribe();
+
+    // Retornar un objeto temporal mientras se procesa
+    return {
+      id: 0,
+      ...department
+    } as Department;
   }
 
   /**
    * Actualiza un departamento existente
    */
   updateDepartment(id: number, department: Partial<Department>): boolean {
-    const index = this.departments().findIndex(dept => dept.id === id);
-    if (index !== -1) {
-      const originalDepartment = this.departments()[index];
-      this.departments.update(depts => {
-        const updated = [...depts];
-        updated[index] = { ...updated[index], ...department };
-        return updated;
-      });
-      
-      // Notificar si hay cambios importantes
-      if (department.estado && department.estado !== originalDepartment.estado) {
-        const type = department.estado === 'Activo' ? NotificationType.SUCCESS : NotificationType.WARNING;
-        this.notificationService.createNotification({
-          userId: 'admin@rrhh.com',
-          type,
-          title: 'Cambio de Estado de Departamento',
-          message: `El departamento "${originalDepartment.nombre}" ha sido ${department.estado === 'Activo' ? 'activado' : 'desactivado'}`,
-          module: NotificationModule.DEPARTMENTS,
-          moduleId: id.toString(),
-          redirectUrl: `/departamentos`
-        });
-      }
-      
-      return true;
-    }
-    return false;
+    const updateData: any = {};
+    
+    if (department.nombre !== undefined) updateData.nombre = department.nombre;
+    if (department.descripcion !== undefined) updateData.descripcion = department.descripcion;
+    if (department.estado !== undefined) updateData.activo = department.estado === 'Activo';
+
+    this.http.put<{ success: boolean; data: any }>(
+      `${this.apiUrl}/departamentos/${id}`,
+      updateData
+    ).pipe(
+      map(response => {
+        if (response.success) {
+          const originalDepartment = this.getDepartmentById(id);
+          this.loadDepartments(); // Recargar desde backend
+          
+          // Notificar si hay cambios importantes
+          if (department.estado && department.estado !== originalDepartment?.estado) {
+            const type = department.estado === 'Activo' ? NotificationType.SUCCESS : NotificationType.WARNING;
+            this.notificationService.createNotification({
+              userId: 'admin@rrhh.com',
+              type,
+              title: 'Cambio de Estado de Departamento',
+              message: `El departamento "${originalDepartment?.nombre}" ha sido ${department.estado === 'Activo' ? 'activado' : 'desactivado'}`,
+              module: NotificationModule.DEPARTMENTS,
+              moduleId: id.toString(),
+              redirectUrl: `/departamentos`
+            });
+          }
+          
+          return true;
+        }
+        return false;
+      }),
+      catchError(error => {
+        console.error('Error al actualizar departamento:', error);
+        return of(false);
+      })
+    ).subscribe();
+
+    return true;
   }
 
   /**
@@ -143,21 +202,35 @@ export class DepartmentService {
    */
   deleteDepartment(id: number): boolean {
     const department = this.getDepartmentById(id);
-    const initialLength = this.departments().length;
-    this.departments.update(depts => depts.filter(dept => dept.id !== id));
     
-    if (this.departments().length < initialLength && department) {
-      // Notificar sobre la eliminación
-      this.notificationService.createNotification({
-        userId: 'admin@rrhh.com',
-        type: NotificationType.WARNING,
-        title: 'Departamento Eliminado',
-        message: `El departamento "${department.nombre}" ha sido eliminado del sistema`,
-        module: NotificationModule.DEPARTMENTS
-      });
-    }
-    
-    return this.departments().length < initialLength;
+    this.http.delete<{ success: boolean }>(`${this.apiUrl}/departamentos/${id}`)
+      .pipe(
+        map(response => {
+          if (response.success) {
+            this.departments.update(depts => depts.filter(dept => dept.id !== id));
+            
+            if (department) {
+              // Notificar sobre la eliminación
+              this.notificationService.createNotification({
+                userId: 'admin@rrhh.com',
+                type: NotificationType.WARNING,
+                title: 'Departamento Eliminado',
+                message: `El departamento "${department.nombre}" ha sido eliminado del sistema`,
+                module: NotificationModule.DEPARTMENTS
+              });
+            }
+            
+            return true;
+          }
+          return false;
+        }),
+        catchError(error => {
+          console.error('Error al eliminar departamento:', error);
+          return of(false);
+        })
+      ).subscribe();
+
+    return true;
   }
 
   /**
@@ -174,4 +247,3 @@ export class DepartmentService {
     return this.departments().reduce((sum, dept) => sum + dept.numeroEmpleados, 0);
   }
 }
-

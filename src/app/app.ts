@@ -1,5 +1,4 @@
 import { Component, signal, inject } from '@angular/core';
-import { RouterOutlet } from '@angular/router';
 import { Login } from './login/login';
 import { Register } from './register/register';
 import { Menu } from './menu/menu';
@@ -7,7 +6,7 @@ import { Navigation } from './navigation';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, Login, Register, Menu],
+  imports: [Login, Register, Menu],
   templateUrl: './app.html',
   styleUrl: './app.css'
 })

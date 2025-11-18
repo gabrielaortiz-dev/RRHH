@@ -1,4 +1,6 @@
 import { Injectable, signal, inject } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { catchError, map, of } from 'rxjs';
 import { NotificationService } from './notification.service';
 import { NotificationType, NotificationModule } from '../models/notification.model';
 
@@ -83,237 +85,75 @@ export interface Employee {
   providedIn: 'root'
 })
 export class EmployeeService {
+  private http = inject(HttpClient);
   private notificationService = inject(NotificationService);
+  private apiUrl = 'http://localhost:8000/api';
   
-  private employees = signal<Employee[]>([
-    {
-      id: 1,
-      nombre: 'Juan',
-      apellido: 'Pérez',
-      email: 'juan.perez@empresa.com',
-      telefono: '809-555-1234',
-      puesto: 'Desarrollador Senior',
-      departamento: 'Tecnología',
-      salario: 75000,
-      fechaIngreso: new Date('2020-01-15'),
-      estado: 'Activo',
-      direccion: 'Calle Principal #123, Santo Domingo',
-      cedula: '001-1234567-8',
-      fechaNacimiento: new Date('1990-05-15'),
-      genero: 'Masculino',
-      estadoCivil: 'Casado',
-      nacionalidad: 'Hondureña',
-      foto: 'https://ui-avatars.com/api/?name=Juan+Perez&background=667eea&color=fff&size=200',
-      contactoEmergencia: {
-        nombre: 'María Pérez',
-        telefono: '809-555-9999',
-        relacion: 'Esposa'
-      },
-      historialLaboral: [
-        {
-          id: 1,
-          empresa: 'Tech Solutions',
-          puesto: 'Desarrollador Junior',
-          fechaInicio: new Date('2018-01-01'),
-          fechaFin: new Date('2019-12-31'),
-          descripcion: 'Desarrollo de aplicaciones web con React y Node.js',
-          motivoSalida: 'Mejor oportunidad laboral'
-        }
-      ],
-      historialAcademico: [
-        {
-          id: 1,
-          institucion: 'Universidad Nacional',
-          titulo: 'Ingeniería en Sistemas',
-          nivel: 'Universitario',
-          fechaInicio: new Date('2012-01-01'),
-          fechaFin: new Date('2017-12-31'),
-          estado: 'Completado'
-        }
-      ],
-      documentos: [
-        {
-          id: 1,
-          nombre: 'CV_Juan_Perez.pdf',
-          tipo: 'CV',
-          url: '#',
-          fechaSubida: new Date('2023-01-15'),
-          tamano: 245000
-        }
-      ]
-    },
-    {
-      id: 2,
-      nombre: 'María',
-      apellido: 'García',
-      email: 'maria.garcia@empresa.com',
-      telefono: '809-555-5678',
-      puesto: 'Gerente de RRHH',
-      departamento: 'Recursos Humanos',
-      salario: 85000,
-      fechaIngreso: new Date('2019-06-20'),
-      estado: 'Activo',
-      direccion: 'Av. 27 de Febrero #456, Santo Domingo',
-      cedula: '001-2345678-9',
-      fechaNacimiento: new Date('1985-08-22'),
-      genero: 'Femenino',
-      estadoCivil: 'Soltero',
-      nacionalidad: 'Hondureña',
-      foto: 'https://ui-avatars.com/api/?name=Maria+Garcia&background=764ba2&color=fff&size=200',
-      contactoEmergencia: {
-        nombre: 'Pedro García',
-        telefono: '809-555-8888',
-        relacion: 'Padre'
-      },
-      historialLaboral: [],
-      historialAcademico: [
-        {
-          id: 1,
-          institucion: 'Universidad Autónoma',
-          titulo: 'Licenciatura en Psicología',
-          nivel: 'Universitario',
-          fechaInicio: new Date('2007-01-01'),
-          fechaFin: new Date('2012-12-31'),
-          estado: 'Completado'
-        },
-        {
-          id: 2,
-          institucion: 'Instituto de Especialización',
-          titulo: 'Maestría en Recursos Humanos',
-          nivel: 'Maestría',
-          fechaInicio: new Date('2015-01-01'),
-          fechaFin: new Date('2017-06-30'),
-          estado: 'Completado'
-        }
-      ],
-      documentos: []
-    },
-    {
-      id: 3,
-      nombre: 'Carlos',
-      apellido: 'Rodríguez',
-      email: 'carlos.rodriguez@empresa.com',
-      telefono: '809-555-9012',
-      puesto: 'Contador',
-      departamento: 'Finanzas',
-      salario: 65000,
-      fechaIngreso: new Date('2021-03-10'),
-      estado: 'Suspendido',
-      direccion: 'Calle Duarte #789, Santiago',
-      cedula: '001-3456789-0',
-      fechaNacimiento: new Date('1992-03-10'),
-      genero: 'Masculino',
-      estadoCivil: 'Soltero',
-      nacionalidad: 'Hondureña',
-      motivoSuspension: 'Investigación administrativa',
-      fechaSuspension: new Date('2024-10-15'),
-      foto: 'https://ui-avatars.com/api/?name=Carlos+Rodriguez&background=f59e0b&color=fff&size=200',
-      contactoEmergencia: {
-        nombre: 'Ana Rodríguez',
-        telefono: '809-555-7777',
-        relacion: 'Madre'
-      },
-      historialLaboral: [],
-      historialAcademico: [
-        {
-          id: 1,
-          institucion: 'Universidad de Contaduría',
-          titulo: 'Contaduría Pública',
-          nivel: 'Universitario',
-          fechaInicio: new Date('2014-01-01'),
-          fechaFin: new Date('2019-12-31'),
-          estado: 'Completado'
-        }
-      ],
-      documentos: []
-    },
-    {
-      id: 4,
-      nombre: 'Ana',
-      apellido: 'Martínez',
-      email: 'ana.martinez@empresa.com',
-      telefono: '809-555-3456',
-      puesto: 'Diseñadora UX/UI',
-      departamento: 'Tecnología',
-      salario: 70000,
-      fechaIngreso: new Date('2021-09-01'),
-      estado: 'Activo',
-      direccion: 'Calle El Sol #321, Santo Domingo',
-      cedula: '001-4567890-1',
-      fechaNacimiento: new Date('1995-11-05'),
-      genero: 'Femenino',
-      estadoCivil: 'Soltero',
-      nacionalidad: 'Hondureña',
-      foto: 'https://ui-avatars.com/api/?name=Ana+Martinez&background=10b981&color=fff&size=200',
-      contactoEmergencia: {
-        nombre: 'Luis Martínez',
-        telefono: '809-555-6666',
-        relacion: 'Hermano'
-      },
-      historialLaboral: [],
-      historialAcademico: [
-        {
-          id: 1,
-          institucion: 'Escuela de Diseño',
-          titulo: 'Diseño Gráfico',
-          nivel: 'Universitario',
-          fechaInicio: new Date('2016-01-01'),
-          fechaFin: new Date('2020-12-31'),
-          estado: 'Completado'
-        }
-      ],
-      documentos: []
-    },
-    {
-      id: 5,
-      nombre: 'Luis',
-      apellido: 'Fernández',
-      email: 'luis.fernandez@empresa.com',
-      telefono: '809-555-7890',
-      puesto: 'Analista de Datos',
-      departamento: 'Tecnología',
-      salario: 68000,
-      fechaIngreso: new Date('2022-01-15'),
-      estado: 'Retirado',
-      direccion: 'Av. Independencia #654, Santo Domingo',
-      cedula: '001-5678901-2',
-      fechaNacimiento: new Date('1988-07-20'),
-      genero: 'Masculino',
-      estadoCivil: 'Divorciado',
-      nacionalidad: 'Hondureña',
-      fechaRetiro: new Date('2024-09-30'),
-      motivoRetiro: 'Renuncia voluntaria - Mejor oferta laboral',
-      foto: 'https://ui-avatars.com/api/?name=Luis+Fernandez&background=ef4444&color=fff&size=200',
-      contactoEmergencia: {
-        nombre: 'Carmen Fernández',
-        telefono: '809-555-5555',
-        relacion: 'Hermana'
-      },
-      historialLaboral: [],
-      historialAcademico: [
-        {
-          id: 1,
-          institucion: 'Universidad Tecnológica',
-          titulo: 'Ingeniería Industrial',
-          nivel: 'Universitario',
-          fechaInicio: new Date('2010-01-01'),
-          fechaFin: new Date('2015-12-31'),
-          estado: 'Completado'
-        }
-      ],
-      documentos: []
-    }
-  ]);
+  private employees = signal<Employee[]>([]);
+  private loaded = false;
 
-  private nextId = 6;
-  private nextWorkHistoryId = 100;
-  private nextAcademicHistoryId = 200;
-  private nextDocumentId = 300;
+  constructor() {
+    this.loadEmployees();
+  }
+
+  /**
+   * Carga los empleados desde el backend
+   */
+  private loadEmployees(): void {
+    if (this.loaded) return;
+    
+    this.http.get<{ success: boolean; data: any[] }>(`${this.apiUrl}/empleados`)
+      .pipe(
+        map(response => {
+          if (response.success && response.data) {
+            return response.data.map((emp: any): Employee => ({
+              id: emp.id,
+              nombre: emp.nombre,
+              apellido: emp.apellido,
+              email: emp.email,
+              telefono: emp.telefono || '',
+              direccion: undefined,
+              cedula: undefined,
+              fechaNacimiento: undefined,
+              genero: undefined,
+              estadoCivil: undefined,
+              nacionalidad: undefined,
+              foto: `https://ui-avatars.com/api/?name=${encodeURIComponent(emp.nombre + ' ' + emp.apellido)}&background=667eea&color=fff&size=200`,
+              puesto: emp.puesto,
+              departamento: emp.departamento_nombre || 'Sin departamento',
+              salario: emp.salario || 0,
+              fechaIngreso: new Date(emp.fecha_ingreso),
+              estado: (emp.activo === 1 ? 'Activo' : 'Retirado') as 'Activo' | 'Suspendido' | 'Retirado',
+              motivoSuspension: undefined,
+              fechaSuspension: undefined,
+              fechaRetiro: emp.activo === 0 ? new Date() : undefined,
+              motivoRetiro: emp.activo === 0 ? 'Desactivado' : undefined,
+              contactoEmergencia: undefined,
+              historialLaboral: [],
+              historialAcademico: [],
+              documentos: []
+            }));
+          }
+          return [];
+        }),
+        catchError(error => {
+          console.error('Error al cargar empleados:', error);
+          return [];
+        })
+      )
+      .subscribe(employees => {
+        this.employees.set(employees);
+        this.loaded = true;
+      });
+  }
 
   /**
    * Obtiene todos los empleados
    */
   getEmployees() {
+    if (!this.loaded) {
+      this.loadEmployees();
+    }
     return this.employees.asReadonly();
   }
 
@@ -363,74 +203,152 @@ export class EmployeeService {
    * Agrega un nuevo empleado
    */
   addEmployee(employee: Omit<Employee, 'id'>): Employee {
-    const newEmployee: Employee = {
+    // Obtener departamento_id del nombre del departamento
+    // Por ahora usaremos 1 como default, deberías tener un servicio de departamentos
+    const departamentoId = 1; // TODO: Obtener del servicio de departamentos
+    
+    const newEmployeeData = {
+      nombre: employee.nombre,
+      apellido: employee.apellido,
+      email: employee.email,
+      telefono: employee.telefono || '',
+      departamento_id: departamentoId,
+      puesto: employee.puesto,
+      fecha_ingreso: employee.fechaIngreso.toISOString().split('T')[0],
+      salario: employee.salario
+    };
+
+    this.http.post<{ success: boolean; data: any }>(
+      `${this.apiUrl}/empleados`,
+      newEmployeeData
+    ).pipe(
+      map(response => {
+        if (response.success && response.data) {
+          const newEmployee: Employee = {
+            id: response.data.id,
+            nombre: response.data.nombre,
+            apellido: response.data.apellido,
+            email: response.data.email,
+            telefono: response.data.telefono || '',
+            direccion: employee.direccion,
+            cedula: employee.cedula,
+            fechaNacimiento: employee.fechaNacimiento,
+            genero: employee.genero,
+            estadoCivil: employee.estadoCivil,
+            nacionalidad: employee.nacionalidad,
+            foto: employee.foto || `https://ui-avatars.com/api/?name=${encodeURIComponent(response.data.nombre + ' ' + response.data.apellido)}&background=667eea&color=fff&size=200`,
+            puesto: response.data.puesto,
+            departamento: response.data.departamento_nombre || employee.departamento,
+            salario: response.data.salario,
+            fechaIngreso: new Date(response.data.fecha_ingreso),
+            estado: 'Activo',
+            contactoEmergencia: employee.contactoEmergencia,
+            historialLaboral: employee.historialLaboral || [],
+            historialAcademico: employee.historialAcademico || [],
+            documentos: employee.documentos || []
+          };
+          
+          this.employees.update(emps => [...emps, newEmployee]);
+          
+          // Notificar al administrador sobre el nuevo empleado
+          this.notificationService.createNotification({
+            userId: 'admin@rrhh.com',
+            type: NotificationType.SUCCESS,
+            title: 'Nuevo Empleado Registrado',
+            message: `${newEmployee.nombre} ${newEmployee.apellido} ha sido registrado exitosamente en ${newEmployee.departamento}`,
+            module: NotificationModule.EMPLOYEES,
+            moduleId: newEmployee.id.toString(),
+            redirectUrl: `/empleados`
+          });
+          
+          return newEmployee;
+        }
+        throw new Error('Error al crear empleado');
+      }),
+      catchError(error => {
+        console.error('Error al crear empleado:', error);
+        throw error;
+      })
+    ).subscribe();
+
+    // Retornar un objeto temporal mientras se procesa
+    return {
+      id: 0,
       ...employee,
-      id: this.nextId++,
       historialLaboral: employee.historialLaboral || [],
       historialAcademico: employee.historialAcademico || [],
       documentos: employee.documentos || []
-    };
-    this.employees.update(emps => [...emps, newEmployee]);
-    
-    // Notificar al administrador sobre el nuevo empleado
-    this.notificationService.createNotification({
-      userId: 'admin@rrhh.com',
-      type: NotificationType.SUCCESS,
-      title: 'Nuevo Empleado Registrado',
-      message: `${newEmployee.nombre} ${newEmployee.apellido} ha sido registrado exitosamente en ${newEmployee.departamento}`,
-      module: NotificationModule.EMPLOYEES,
-      moduleId: newEmployee.id.toString(),
-      redirectUrl: `/empleados`
-    });
-    
-    return newEmployee;
+    } as Employee;
   }
 
   /**
    * Actualiza un empleado existente
    */
   updateEmployee(id: number, employee: Partial<Employee>): boolean {
-    const index = this.employees().findIndex(emp => emp.id === id);
-    if (index !== -1) {
-      const originalEmployee = this.employees()[index];
-      this.employees.update(emps => {
-        const updated = [...emps];
-        updated[index] = { ...updated[index], ...employee };
-        return updated;
-      });
-      
-      // Notificar si hay cambios importantes
-      if (employee.estado && employee.estado !== originalEmployee.estado) {
-        let message = '';
-        let type = NotificationType.INFO;
-        
-        if (employee.estado === 'Suspendido') {
-          message = `${originalEmployee.nombre} ${originalEmployee.apellido} ha sido suspendido`;
-          type = NotificationType.WARNING;
-        } else if (employee.estado === 'Retirado') {
-          message = `${originalEmployee.nombre} ${originalEmployee.apellido} ha sido retirado de la empresa`;
-          type = NotificationType.INFO;
-        } else if (employee.estado === 'Activo') {
-          message = `${originalEmployee.nombre} ${originalEmployee.apellido} ha sido reactivado`;
-          type = NotificationType.SUCCESS;
-        }
-        
-        if (message) {
-          this.notificationService.createNotification({
-            userId: 'admin@rrhh.com',
-            type,
-            title: 'Cambio de Estado de Empleado',
-            message,
-            module: NotificationModule.EMPLOYEES,
-            moduleId: id.toString(),
-            redirectUrl: `/empleados`
-          });
-        }
-      }
-      
-      return true;
+    const updateData: any = {};
+    
+    if (employee.nombre !== undefined) updateData.nombre = employee.nombre;
+    if (employee.apellido !== undefined) updateData.apellido = employee.apellido;
+    if (employee.email !== undefined) updateData.email = employee.email;
+    if (employee.telefono !== undefined) updateData.telefono = employee.telefono;
+    if (employee.puesto !== undefined) updateData.puesto = employee.puesto;
+    if (employee.salario !== undefined) updateData.salario = employee.salario;
+    if (employee.fechaIngreso !== undefined) {
+      updateData.fecha_ingreso = employee.fechaIngreso.toISOString().split('T')[0];
     }
-    return false;
+    if (employee.estado !== undefined) {
+      updateData.activo = employee.estado === 'Activo' ? 1 : 0;
+    }
+
+    this.http.put<{ success: boolean; data: any }>(
+      `${this.apiUrl}/empleados/${id}`,
+      updateData
+    ).pipe(
+      map(response => {
+        if (response.success) {
+          const originalEmployee = this.getEmployeeById(id);
+          this.loadEmployees(); // Recargar desde backend
+          
+          // Notificar si hay cambios importantes
+          if (employee.estado && employee.estado !== originalEmployee?.estado) {
+            let message = '';
+            let type = NotificationType.INFO;
+            
+            if (employee.estado === 'Suspendido') {
+              message = `${originalEmployee?.nombre} ${originalEmployee?.apellido} ha sido suspendido`;
+              type = NotificationType.WARNING;
+            } else if (employee.estado === 'Retirado') {
+              message = `${originalEmployee?.nombre} ${originalEmployee?.apellido} ha sido retirado de la empresa`;
+              type = NotificationType.INFO;
+            } else if (employee.estado === 'Activo') {
+              message = `${originalEmployee?.nombre} ${originalEmployee?.apellido} ha sido reactivado`;
+              type = NotificationType.SUCCESS;
+            }
+            
+            if (message) {
+              this.notificationService.createNotification({
+                userId: 'admin@rrhh.com',
+                type,
+                title: 'Cambio de Estado de Empleado',
+                message,
+                module: NotificationModule.EMPLOYEES,
+                moduleId: id.toString(),
+                redirectUrl: `/empleados`
+              });
+            }
+          }
+          
+          return true;
+        }
+        return false;
+      }),
+      catchError(error => {
+        console.error('Error al actualizar empleado:', error);
+        return of(false);
+      })
+    ).subscribe();
+
+    return true;
   }
 
   /**
@@ -438,21 +356,35 @@ export class EmployeeService {
    */
   deleteEmployee(id: number): boolean {
     const employee = this.getEmployeeById(id);
-    const initialLength = this.employees().length;
-    this.employees.update(emps => emps.filter(emp => emp.id !== id));
     
-    if (this.employees().length < initialLength && employee) {
-      // Notificar sobre la eliminación
-      this.notificationService.createNotification({
-        userId: 'admin@rrhh.com',
-        type: NotificationType.WARNING,
-        title: 'Empleado Eliminado',
-        message: `El registro de ${employee.nombre} ${employee.apellido} ha sido eliminado del sistema`,
-        module: NotificationModule.EMPLOYEES
-      });
-    }
-    
-    return this.employees().length < initialLength;
+    this.http.delete<{ success: boolean }>(`${this.apiUrl}/empleados/${id}`)
+      .pipe(
+        map(response => {
+          if (response.success) {
+            this.employees.update(emps => emps.filter(emp => emp.id !== id));
+            
+            if (employee) {
+              // Notificar sobre la eliminación
+              this.notificationService.createNotification({
+                userId: 'admin@rrhh.com',
+                type: NotificationType.WARNING,
+                title: 'Empleado Eliminado',
+                message: `El registro de ${employee.nombre} ${employee.apellido} ha sido eliminado del sistema`,
+                module: NotificationModule.EMPLOYEES
+              });
+            }
+            
+            return true;
+          }
+          return false;
+        }),
+        catchError(error => {
+          console.error('Error al eliminar empleado:', error);
+          return of(false);
+        })
+      ).subscribe();
+
+    return true;
   }
 
   /**
@@ -463,7 +395,7 @@ export class EmployeeService {
     if (index !== -1) {
       const newWorkHistory: WorkHistory = {
         ...workHistory,
-        id: this.nextWorkHistoryId++
+        id: Date.now() // ID temporal
       };
       this.employees.update(emps => {
         const updated = [...emps];
@@ -483,7 +415,7 @@ export class EmployeeService {
     if (index !== -1) {
       const newAcademicHistory: AcademicHistory = {
         ...academicHistory,
-        id: this.nextAcademicHistoryId++
+        id: Date.now() // ID temporal
       };
       this.employees.update(emps => {
         const updated = [...emps];
@@ -503,7 +435,7 @@ export class EmployeeService {
     if (index !== -1) {
       const newDocument: DocumentFile = {
         ...document,
-        id: this.nextDocumentId++
+        id: Date.now() // ID temporal
       };
       this.employees.update(emps => {
         const updated = [...emps];
@@ -561,24 +493,12 @@ export class EmployeeService {
     reason?: string,
     date?: Date
   ): boolean {
-    const index = this.employees().findIndex(emp => emp.id === employeeId);
-    if (index !== -1) {
-      this.employees.update(emps => {
-        const updated = [...emps];
-        updated[index].estado = status;
-        
-        if (status === 'Suspendido') {
-          updated[index].motivoSuspension = reason;
-          updated[index].fechaSuspension = date || new Date();
-        } else if (status === 'Retirado') {
-          updated[index].motivoRetiro = reason;
-          updated[index].fechaRetiro = date || new Date();
-        }
-        
-        return updated;
-      });
-      return true;
-    }
-    return false;
+    return this.updateEmployee(employeeId, {
+      estado: status,
+      motivoSuspension: status === 'Suspendido' ? reason : undefined,
+      fechaSuspension: status === 'Suspendido' ? (date || new Date()) : undefined,
+      motivoRetiro: status === 'Retirado' ? reason : undefined,
+      fechaRetiro: status === 'Retirado' ? (date || new Date()) : undefined
+    });
   }
 }

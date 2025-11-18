@@ -1,4 +1,6 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, signal, inject } from '@angular/core';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { catchError, throwError, firstValueFrom } from 'rxjs';
 
 export interface User {
   email: string;
@@ -11,66 +13,97 @@ export interface LoginCredentials {
   password: string;
 }
 
+interface LoginResponse {
+  success: boolean;
+  message?: string;
+  data?: {
+    id: number;
+    nombre: string;
+    email: string;
+    rol: string;
+    fecha_creacion: string;
+    activo: number;
+  };
+}
+
+interface LoginResult {
+  success: boolean;
+  message?: string;
+  user?: User;
+}
+
 @Injectable({
   providedIn: 'root'
 })
 export class AuthService {
+  private http = inject(HttpClient);
+  private apiUrl = 'http://localhost:8000/api';
+  
   private currentUser = signal<User | null>(null);
   private isAuthenticated = signal<boolean>(false);
-
-  // Base de datos de usuarios (en producción esto vendría de un backend)
-  private readonly users = [
-    {
-      email: 'admin@rrhh.com',
-      password: 'Admin123',
-      name: 'Administrador',
-      role: 'admin'
-    },
-    {
-      email: 'usuario@rrhh.com',
-      password: 'Usuario123',
-      name: 'Usuario Regular',
-      role: 'user'
-    }
-  ];
 
   /**
    * Intenta autenticar al usuario con las credenciales proporcionadas
    */
-  login(credentials: LoginCredentials): Promise<{ success: boolean; message?: string; user?: User }> {
-    return new Promise((resolve) => {
-      // Simular delay de red
-      setTimeout(() => {
-        const user = this.users.find(
-          u => u.email === credentials.email && u.password === credentials.password
-        );
+  async login(credentials: LoginCredentials): Promise<LoginResult> {
+    try {
+      const response = await firstValueFrom(
+        this.http.post<LoginResponse>(
+          `${this.apiUrl}/usuarios/login`,
+          credentials
+        ).pipe(
+          catchError((error: HttpErrorResponse) => {
+            let message = 'Error al conectar con el servidor';
+            
+            if (error.error) {
+              message = error.error.detail || error.error.message || message;
+            }
+            
+            const errorResult: LoginResult = {
+              success: false,
+              message: message
+            };
+            
+            return throwError(() => errorResult);
+          })
+        )
+      );
 
-        if (user) {
-          const authenticatedUser: User = {
-            email: user.email,
-            name: user.name,
-            role: user.role
-          };
-
-          this.currentUser.set(authenticatedUser);
-          this.isAuthenticated.set(true);
-
-          // Guardar en localStorage para persistencia
-          localStorage.setItem('currentUser', JSON.stringify(authenticatedUser));
-          localStorage.setItem('isAuthenticated', 'true');
-
-          resolve({
-            success: true,
-            user: authenticatedUser
-          });
-        } else {
-          resolve({
-            success: false,
-            message: 'Credenciales incorrectas. Por favor, verifica tu usuario y contraseña.'
-          });
-        }
-      }, 1000);
-    });
+      if (response.success && response.data) {
+        const authenticatedUser: User = {
+          email: response.data.email,
+          name: response.data.nombre,
+          role: response.data.rol
+        };
+        
+        this.currentUser.set(authenticatedUser);
+        this.isAuthenticated.set(true);
+        
+        // Guardar en localStorage para persistencia
+        localStorage.setItem('currentUser', JSON.stringify(authenticatedUser));
+        localStorage.setItem('isAuthenticated', 'true');
+        
+        return {
+          success: true,
+          user: authenticatedUser
+        };
+      } else {
+        return {
+          success: false,
+          message: response.message || 'Credenciales incorrectas'
+        };
+      }
+    } catch (error: unknown) {
+      // Manejar el error que viene del throwError
+      if (error && typeof error === 'object' && 'success' in error) {
+        return error as LoginResult;
+      } else {
+        return {
+          success: false,
+          message: 'Error desconocido al intentar iniciar sesión'
+        };
+      }
+    }
   }
 
   /**
@@ -123,11 +156,6 @@ export class AuthService {
    * Obtiene todos los usuarios disponibles (solo para demo)
    */
   getAvailableUsers() {
-    return this.users.map(u => ({
-      email: u.email,
-      name: u.name,
-      role: u.role
-    }));
+    return [];
   }
 }
-
