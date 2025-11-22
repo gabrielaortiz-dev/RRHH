@@ -208,3 +208,119 @@ class AsistenciaReporteRequest(BaseModel):
             }
         }
 
+# ============================================================================
+#                           MODELOS DE NÓMINA
+# ============================================================================
+
+# Modelo para bonificación en nómina
+class BonificacionItem(BaseModel):
+    concepto: str
+    tipo: Optional[str] = None
+    monto: float
+    descripcion: Optional[str] = None
+
+# Modelo para deducción en nómina
+class DeduccionItem(BaseModel):
+    concepto: str
+    tipo: Optional[str] = None
+    monto: float
+    descripcion: Optional[str] = None
+
+# Modelo para crear nómina
+class NominaCreate(BaseModel):
+    id_empleado: int
+    mes: int = Field(..., ge=1, le=12)
+    anio: int = Field(..., ge=2000, le=2100)
+    salario_base: float = Field(..., gt=0)
+    bonificaciones: Optional[list[BonificacionItem]] = []
+    deducciones: Optional[list[DeduccionItem]] = []
+    fecha_pago: Optional[str] = None
+    observaciones: Optional[str] = None
+
+# Modelo para actualizar nómina
+class NominaUpdate(BaseModel):
+    salario_base: Optional[float] = None
+    bonificaciones: Optional[list[BonificacionItem]] = None
+    deducciones: Optional[list[DeduccionItem]] = None
+    fecha_pago: Optional[str] = None
+    estado: Optional[str] = None
+    observaciones: Optional[str] = None
+
+# Modelo para configuración de impuestos
+class ConfigImpuestoCreate(BaseModel):
+    nombre: str
+    tipo: str
+    porcentaje: Optional[float] = None
+    monto_fijo: Optional[float] = None
+    rango_minimo: Optional[float] = None
+    rango_maximo: Optional[float] = None
+
+# Modelo para configuración de deducciones
+class ConfigDeduccionCreate(BaseModel):
+    nombre: str
+    tipo: str
+    porcentaje: Optional[float] = None
+    monto_fijo: Optional[float] = None
+    aplica_a_todos: bool = False
+
+# Modelo para configuración de beneficios
+class ConfigBeneficioCreate(BaseModel):
+    nombre: str
+    tipo: str
+    porcentaje: Optional[float] = None
+    monto_fijo: Optional[float] = None
+    aplica_a_todos: bool = False
+
+# ============================================================================
+#                    MODELOS DE VACACIONES Y PERMISOS
+# ============================================================================
+
+# Modelo para crear solicitud de vacaciones/permisos
+class VacacionPermisoCreate(BaseModel):
+    id_empleado: int
+    tipo: str
+    fecha_inicio: str
+    fecha_fin: str
+    motivo: Optional[str] = None
+    observaciones: Optional[str] = None
+
+# Modelo para actualizar solicitud
+class VacacionPermisoUpdate(BaseModel):
+    estado: Optional[str] = None
+    motivo_rechazo: Optional[str] = None
+    observaciones: Optional[str] = None
+
+# Modelo para aprobar/rechazar
+class VacacionPermisoAprobacion(BaseModel):
+    aprobar: bool
+    motivo: Optional[str] = None
+    nivel: str = Field(..., description="jefe o rrhh")
+
+# ============================================================================
+#                           MODELOS DE DOCUMENTOS
+# ============================================================================
+
+# Modelo para subir documento
+class DocumentoCreate(BaseModel):
+    id_empleado: int
+    tipo_documento: str
+    categoria: Optional[str] = None
+    descripcion: Optional[str] = None
+    fecha_expiracion: Optional[str] = None
+
+# Modelo para actualizar documento
+class DocumentoUpdate(BaseModel):
+    tipo_documento: Optional[str] = None
+    categoria: Optional[str] = None
+    descripcion: Optional[str] = None
+    fecha_expiracion: Optional[str] = None
+    estado: Optional[str] = None
+
+# Modelo para permisos de documento
+class DocumentoPermisoCreate(BaseModel):
+    usuario_id: Optional[int] = None
+    rol: Optional[str] = None
+    puede_ver: bool = True
+    puede_descargar: bool = False
+    puede_eliminar: bool = False
+

@@ -233,34 +233,272 @@ class Database:
                 )
             ''')
             
-            # Tabla de Nómina
+            # Tabla de Nómina (expandida)
             self.execute_query('''
                 CREATE TABLE IF NOT EXISTS Nomina (
                     id_nomina INTEGER PRIMARY KEY AUTOINCREMENT,
                     id_empleado INTEGER,
-                    mes INTEGER,
-                    anio INTEGER,
-                    salario_base DECIMAL(10,2),
-                    bonificaciones DECIMAL(10,2),
-                    deducciones DECIMAL(10,2),
-                    salario_neto DECIMAL(10,2),
+                    mes INTEGER NOT NULL,
+                    anio INTEGER NOT NULL,
+                    periodo TEXT NOT NULL,
+                    salario_base DECIMAL(10,2) NOT NULL,
+                    total_bonificaciones DECIMAL(10,2) DEFAULT 0,
+                    total_deducciones DECIMAL(10,2) DEFAULT 0,
+                    salario_neto DECIMAL(10,2) NOT NULL,
                     fecha_pago DATE,
-                    FOREIGN KEY (id_empleado) REFERENCES Empleados(id_empleado)
+                    estado VARCHAR(20) DEFAULT 'pendiente',
+                    fecha_creacion DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    fecha_modificacion DATETIME,
+                    creado_por INTEGER,
+                    modificado_por INTEGER,
+                    observaciones TEXT,
+                    FOREIGN KEY (id_empleado) REFERENCES Empleados(id_empleado),
+                    FOREIGN KEY (creado_por) REFERENCES usuarios(id),
+                    FOREIGN KEY (modificado_por) REFERENCES usuarios(id),
+                    UNIQUE(id_empleado, mes, anio)
                 )
             ''')
             
-            # Tabla de Vacaciones y Permisos
+            # Tabla de Detalles de Bonificaciones en Nómina
+            self.execute_query('''
+                CREATE TABLE IF NOT EXISTS Nomina_Bonificaciones (
+                    id_bonificacion INTEGER PRIMARY KEY AUTOINCREMENT,
+                    id_nomina INTEGER NOT NULL,
+                    concepto VARCHAR(100) NOT NULL,
+                    tipo VARCHAR(50),
+                    monto DECIMAL(10,2) NOT NULL,
+                    descripcion TEXT,
+                    FOREIGN KEY (id_nomina) REFERENCES Nomina(id_nomina) ON DELETE CASCADE
+                )
+            ''')
+            
+            # Tabla de Detalles de Deducciones en Nómina
+            self.execute_query('''
+                CREATE TABLE IF NOT EXISTS Nomina_Deducciones (
+                    id_deduccion INTEGER PRIMARY KEY AUTOINCREMENT,
+                    id_nomina INTEGER NOT NULL,
+                    concepto VARCHAR(100) NOT NULL,
+                    tipo VARCHAR(50),
+                    monto DECIMAL(10,2) NOT NULL,
+                    descripcion TEXT,
+                    FOREIGN KEY (id_nomina) REFERENCES Nomina(id_nomina) ON DELETE CASCADE
+                )
+            ''')
+            
+            # Tabla de Configuración de Impuestos
+            self.execute_query('''
+                CREATE TABLE IF NOT EXISTS Config_Impuestos (
+                    id_impuesto INTEGER PRIMARY KEY AUTOINCREMENT,
+                    nombre VARCHAR(100) NOT NULL,
+                    tipo VARCHAR(50) NOT NULL,
+                    porcentaje DECIMAL(5,2),
+                    monto_fijo DECIMAL(10,2),
+                    rango_minimo DECIMAL(10,2),
+                    rango_maximo DECIMAL(10,2),
+                    activo BOOLEAN DEFAULT 1,
+                    fecha_creacion DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    fecha_modificacion DATETIME
+                )
+            ''')
+            
+            # Tabla de Configuración de Deducciones
+            self.execute_query('''
+                CREATE TABLE IF NOT EXISTS Config_Deducciones (
+                    id_deduccion_config INTEGER PRIMARY KEY AUTOINCREMENT,
+                    nombre VARCHAR(100) NOT NULL,
+                    tipo VARCHAR(50) NOT NULL,
+                    porcentaje DECIMAL(5,2),
+                    monto_fijo DECIMAL(10,2),
+                    aplica_a_todos BOOLEAN DEFAULT 0,
+                    activo BOOLEAN DEFAULT 1,
+                    fecha_creacion DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    fecha_modificacion DATETIME
+                )
+            ''')
+            
+            # Tabla de Configuración de Beneficios
+            self.execute_query('''
+                CREATE TABLE IF NOT EXISTS Config_Beneficios (
+                    id_beneficio INTEGER PRIMARY KEY AUTOINCREMENT,
+                    nombre VARCHAR(100) NOT NULL,
+                    tipo VARCHAR(50) NOT NULL,
+                    porcentaje DECIMAL(5,2),
+                    monto_fijo DECIMAL(10,2),
+                    aplica_a_todos BOOLEAN DEFAULT 0,
+                    activo BOOLEAN DEFAULT 1,
+                    fecha_creacion DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    fecha_modificacion DATETIME
+                )
+            ''')
+            
+            # Tabla de Auditoría de Nómina (trazabilidad)
+            self.execute_query('''
+                CREATE TABLE IF NOT EXISTS Nomina_Auditoria (
+                    id_auditoria INTEGER PRIMARY KEY AUTOINCREMENT,
+                    id_nomina INTEGER NOT NULL,
+                    accion VARCHAR(50) NOT NULL,
+                    usuario_id INTEGER,
+                    usuario_nombre VARCHAR(100),
+                    campo_modificado VARCHAR(100),
+                    valor_anterior TEXT,
+                    valor_nuevo TEXT,
+                    fecha_modificacion DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    ip_address VARCHAR(50),
+                    FOREIGN KEY (id_nomina) REFERENCES Nomina(id_nomina),
+                    FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
+                )
+            ''')
+            
+            # Tabla de Vacaciones y Permisos (expandida)
             self.execute_query('''
                 CREATE TABLE IF NOT EXISTS Vacaciones_Permisos (
                     id_permiso INTEGER PRIMARY KEY AUTOINCREMENT,
-                    id_empleado INTEGER,
-                    tipo VARCHAR(50),
-                    fecha_solicitud DATE,
-                    fecha_inicio DATE,
-                    fecha_fin DATE,
-                    estado VARCHAR(20),
+                    id_empleado INTEGER NOT NULL,
+                    tipo VARCHAR(50) NOT NULL,
+                    fecha_solicitud DATE DEFAULT CURRENT_DATE,
+                    fecha_inicio DATE NOT NULL,
+                    fecha_fin DATE NOT NULL,
+                    dias_solicitados INTEGER,
+                    dias_disponibles INTEGER,
+                    dias_usados INTEGER,
+                    dias_acumulados INTEGER,
+                    motivo TEXT,
+                    estado VARCHAR(20) DEFAULT 'pendiente',
+                    aprobado_por_jefe INTEGER,
+                    aprobado_por_rrhh INTEGER,
+                    fecha_aprobacion_jefe DATETIME,
+                    fecha_aprobacion_rrhh DATETIME,
+                    fecha_rechazo DATETIME,
+                    motivo_rechazo TEXT,
                     observaciones TEXT,
-                    FOREIGN KEY (id_empleado) REFERENCES Empleados(id_empleado)
+                    fecha_creacion DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    fecha_modificacion DATETIME,
+                    FOREIGN KEY (id_empleado) REFERENCES Empleados(id_empleado),
+                    FOREIGN KEY (aprobado_por_jefe) REFERENCES usuarios(id),
+                    FOREIGN KEY (aprobado_por_rrhh) REFERENCES usuarios(id)
+                )
+            ''')
+            
+            # Tabla de Balance de Vacaciones por Empleado
+            self.execute_query('''
+                CREATE TABLE IF NOT EXISTS Balance_Vacaciones (
+                    id_balance INTEGER PRIMARY KEY AUTOINCREMENT,
+                    id_empleado INTEGER NOT NULL,
+                    anio INTEGER NOT NULL,
+                    dias_totales INTEGER DEFAULT 0,
+                    dias_usados INTEGER DEFAULT 0,
+                    dias_disponibles INTEGER DEFAULT 0,
+                    dias_acumulados INTEGER DEFAULT 0,
+                    fecha_actualizacion DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (id_empleado) REFERENCES Empleados(id_empleado),
+                    UNIQUE(id_empleado, anio)
+                )
+            ''')
+            
+            # Tabla de Notificaciones de Vacaciones
+            self.execute_query('''
+                CREATE TABLE IF NOT EXISTS Notificaciones_Vacaciones (
+                    id_notificacion INTEGER PRIMARY KEY AUTOINCREMENT,
+                    id_permiso INTEGER NOT NULL,
+                    usuario_id INTEGER NOT NULL,
+                    tipo_notificacion VARCHAR(50),
+                    mensaje TEXT,
+                    leida BOOLEAN DEFAULT 0,
+                    fecha_creacion DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (id_permiso) REFERENCES Vacaciones_Permisos(id_permiso),
+                    FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
+                )
+            ''')
+            
+            # Tabla de Documentos
+            self.execute_query('''
+                CREATE TABLE IF NOT EXISTS Documentos (
+                    id_documento INTEGER PRIMARY KEY AUTOINCREMENT,
+                    id_empleado INTEGER,
+                    nombre_archivo VARCHAR(255) NOT NULL,
+                    nombre_original VARCHAR(255) NOT NULL,
+                    tipo_documento VARCHAR(50) NOT NULL,
+                    categoria VARCHAR(50),
+                    ruta_archivo TEXT NOT NULL,
+                    tamano_bytes INTEGER,
+                    mime_type VARCHAR(100),
+                    fecha_subida DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    fecha_expiracion DATE,
+                    estado VARCHAR(20) DEFAULT 'activo',
+                    subido_por INTEGER,
+                    descripcion TEXT,
+                    FOREIGN KEY (id_empleado) REFERENCES Empleados(id_empleado),
+                    FOREIGN KEY (subido_por) REFERENCES usuarios(id)
+                )
+            ''')
+            
+            # Tabla de Permisos de Documentos
+            self.execute_query('''
+                CREATE TABLE IF NOT EXISTS Documentos_Permisos (
+                    id_permiso_doc INTEGER PRIMARY KEY AUTOINCREMENT,
+                    id_documento INTEGER NOT NULL,
+                    usuario_id INTEGER,
+                    rol VARCHAR(50),
+                    puede_ver BOOLEAN DEFAULT 1,
+                    puede_descargar BOOLEAN DEFAULT 0,
+                    puede_eliminar BOOLEAN DEFAULT 0,
+                    FOREIGN KEY (id_documento) REFERENCES Documentos(id_documento) ON DELETE CASCADE,
+                    FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
+                )
+            ''')
+            
+            # Tabla de Auditoría de Usuarios (mejorada)
+            self.execute_query('''
+                CREATE TABLE IF NOT EXISTS Usuarios_Auditoria (
+                    id_auditoria INTEGER PRIMARY KEY AUTOINCREMENT,
+                    usuario_id INTEGER,
+                    accion VARCHAR(50) NOT NULL,
+                    modulo VARCHAR(50),
+                    detalles TEXT,
+                    ip_address VARCHAR(50),
+                    user_agent TEXT,
+                    fecha_accion DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
+                )
+            ''')
+            
+            # Tabla de Intentos de Login (para bloqueo de cuentas)
+            self.execute_query('''
+                CREATE TABLE IF NOT EXISTS Login_Intentos (
+                    id_intento INTEGER PRIMARY KEY AUTOINCREMENT,
+                    email VARCHAR(100) NOT NULL,
+                    exitoso BOOLEAN DEFAULT 0,
+                    ip_address VARCHAR(50),
+                    user_agent TEXT,
+                    fecha_intento DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            
+            # Tabla de Configuración del Sistema
+            self.execute_query('''
+                CREATE TABLE IF NOT EXISTS Config_Sistema (
+                    id_config INTEGER PRIMARY KEY AUTOINCREMENT,
+                    clave VARCHAR(100) UNIQUE NOT NULL,
+                    valor TEXT,
+                    tipo VARCHAR(50),
+                    descripcion TEXT,
+                    categoria VARCHAR(50),
+                    fecha_creacion DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    fecha_modificacion DATETIME
+                )
+            ''')
+            
+            # Tabla de Catálogos
+            self.execute_query('''
+                CREATE TABLE IF NOT EXISTS Catalogos (
+                    id_catalogo INTEGER PRIMARY KEY AUTOINCREMENT,
+                    tipo VARCHAR(50) NOT NULL,
+                    codigo VARCHAR(50),
+                    nombre VARCHAR(100) NOT NULL,
+                    descripcion TEXT,
+                    activo BOOLEAN DEFAULT 1,
+                    orden INTEGER DEFAULT 0,
+                    fecha_creacion DATETIME DEFAULT CURRENT_TIMESTAMP
                 )
             ''')
             
