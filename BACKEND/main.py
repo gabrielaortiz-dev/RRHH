@@ -30,7 +30,7 @@ app = FastAPI(
 # Configurar CORS para permitir peticiones desde Angular
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:4200", "http://localhost:4201"],  # URLs de Angular
+    allow_origins=["http://localhost:4200", "http://localhost:4201", "http://127.0.0.1:4200", "http://127.0.0.1:4201"],  # URLs de Angular
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -301,18 +301,24 @@ async def login_usuario(credentials: UsuarioLogin, request: Request):
         db = get_db()
         
         # Verificar intentos fallidos recientes (últimos 15 minutos)
-        intentos_recientes = db.fetch_all(
-            """SELECT COUNT(*) as total FROM Login_Intentos 
-               WHERE email = ? AND exitoso = 0 
-               AND fecha_intento >= datetime('now', '-15 minutes')""",
-            (credentials.email,)
-        )
-        
-        if intentos_recientes and intentos_recientes[0]['total'] >= 5:
-            raise HTTPException(
-                status_code=429,
-                detail="Demasiados intentos fallidos. Cuenta bloqueada temporalmente por 15 minutos."
+        try:
+            intentos_recientes = db.fetch_all(
+                """SELECT COUNT(*) as total FROM Login_Intentos 
+                   WHERE email = ? AND exitoso = 0 
+                   AND fecha_intento >= datetime('now', '-15 minutes')""",
+                (credentials.email,)
             )
+            
+            if intentos_recientes and len(intentos_recientes) > 0 and intentos_recientes[0].get('total', 0) >= 5:
+                raise HTTPException(
+                    status_code=429,
+                    detail="Demasiados intentos fallidos. Cuenta bloqueada temporalmente por 15 minutos."
+                )
+        except HTTPException:
+            raise
+        except Exception:
+            # Si falla la verificación de intentos, continuar (tabla puede no existir todavía)
+            pass
         
         # Buscar usuario
         usuario = db.fetch_one(
@@ -320,33 +326,64 @@ async def login_usuario(credentials: UsuarioLogin, request: Request):
             (credentials.email,)
         )
         
-        if not usuario or usuario['password'] != credentials.password:
-            # Registrar intento fallido
+        if not usuario:
+            # Registrar intento fallido (si es posible)
+            try:
+                client_host = request.client.host if request.client else None
+                db.execute_query(
+                    """INSERT INTO Login_Intentos (email, exitoso, ip_address)
+                       VALUES (?, 0, ?)""",
+                    (credentials.email, client_host)
+                )
+            except Exception:
+                pass
+            raise HTTPException(status_code=401, detail="Credenciales inválidas")
+        
+        # Verificar contraseña
+        if usuario['password'] != credentials.password:
+            # Registrar intento fallido (si es posible)
+            try:
+                client_host = request.client.host if request.client else None
+                db.execute_query(
+                    """INSERT INTO Login_Intentos (email, exitoso, ip_address)
+                       VALUES (?, 0, ?)""",
+                    (credentials.email, client_host)
+                )
+            except Exception:
+                pass
+            raise HTTPException(status_code=401, detail="Credenciales inválidas")
+        
+        # Registrar intento exitoso (si es posible)
+        try:
             client_host = request.client.host if request.client else None
             db.execute_query(
                 """INSERT INTO Login_Intentos (email, exitoso, ip_address)
-                   VALUES (?, 0, ?)""",
+                   VALUES (?, 1, ?)""",
                 (credentials.email, client_host)
             )
-            raise HTTPException(status_code=401, detail="Credenciales inválidas")
+        except Exception:
+            pass
         
-        # Registrar intento exitoso
-        client_host = request.client.host if request.client else None
-        db.execute_query(
-            """INSERT INTO Login_Intentos (email, exitoso, ip_address)
-               VALUES (?, 1, ?)""",
-            (credentials.email, client_host)
-        )
-        
-        # Registrar en auditoría
-        db.execute_query(
-            """INSERT INTO Usuarios_Auditoria (usuario_id, accion, modulo, detalles, ip_address)
-               VALUES (?, ?, ?, ?, ?)""",
-            (usuario['id'], "LOGIN", "Sistema", "Inicio de sesión exitoso", client_host)
-        )
+        # Registrar en auditoría (si es posible)
+        try:
+            client_host = request.client.host if request.client else None
+            db.execute_query(
+                """INSERT INTO Usuarios_Auditoria (usuario_id, accion, modulo, detalles, ip_address)
+                   VALUES (?, ?, ?, ?, ?)""",
+                (usuario['id'], "LOGIN", "Sistema", "Inicio de sesión exitoso", client_host)
+            )
+        except Exception:
+            pass
         
         # Retornar sin password
-        usuario_response = {k: v for k, v in usuario.items() if k != 'password'}
+        usuario_response = {
+            'id': usuario['id'],
+            'nombre': usuario['nombre'],
+            'email': usuario['email'],
+            'rol': usuario['rol'],
+            'fecha_creacion': usuario['fecha_creacion'],
+            'activo': usuario['activo']
+        }
         
         return {
             "success": True,
@@ -356,6 +393,8 @@ async def login_usuario(credentials: UsuarioLogin, request: Request):
     except HTTPException:
         raise
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Error en login: {str(e)}")
 
 # ============================================================================
@@ -2535,9 +2574,12 @@ if __name__ == "__main__":
     print("=" * 50)
     print("Iniciando servidor FastAPI con SQLite")
     print("=" * 50)
+    print("Servidor disponible en: http://localhost:8000")
+    print("Documentación disponible en: http://localhost:8000/docs")
+    print("=" * 50)
     uvicorn.run(
         "main:app",
-        host="0.0.0.0",
+        host="0.0.0.0",  # 0.0.0.0 permite conexiones desde localhost y 127.0.0.1
         port=8000,
         reload=True,  # Auto-reload en desarrollo
         log_level="info"

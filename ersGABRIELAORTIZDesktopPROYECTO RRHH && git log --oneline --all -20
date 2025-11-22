@@ -1,0 +1,47 @@
+[33m0247080[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mdev[m[33m, [m[1;31morigin/dev[m[33m)[m Actualización: submodule RRHH actualizado con los últimos cambios
+[33m509a3e9[m Actualización: mejoras en backend y documentación - Actualización de database.py, main.py y models.py - Agregada documentación de implementación completa - Agregado resumen de implementación
+[33m0744f2d[m Actualización: mejoras en formularios y servicios - Actualización de formularios de payroll y vacations - Agregados nuevos servicios (document, payroll, vacation)
+[33me6b401e[m Actualizar referencia del submódulo RRHH con los nuevos módulos
+[33m6259ed7[m Nuevos módulos: usuarios, asistencia, contratos, nómina y vacaciones; mejoras en menú y reportes
+[33mb8a796a[m Actualización: nuevos scripts, configuración de usuarios y mejoras en la plataforma
+[33m967eb93[m Merge branch 'dev' of https://github.com/gabrielaortiz-dev/RRHH.git into dev
+[33m7515f42[m ActualizaciÃ³n de referencia del submÃ³dulo RRHH
+[33mdeaa234[m ActualizaciÃ³n de cambios en el proyecto
+[33m2509ccd[m ActualizaciÃ³n de cambios en dev
+[33m2f54375[m Actualizar referencia del submÃ³dulo RRHH
+[33md36b7b1[m Limpieza de estructura y actualizaciÃ³n de notificaciones
+[33m83069da[m[33m ([m[1;32mmaster[m[33m)[m feat: Agregar tablas de base de datos (Departamentos, Puestos, Empleados, Contratos, Asistencias, Capacitaciones, Evaluaciones, Nomina, Vacaciones_Permisos)
+[33m4a24cce[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m Merge pull request #3 from gabrielaortiz-dev/sisback
+[33m24c84c1[m[33m ([m[1;31morigin/sisback[m[33m)[m Remove obsolete batch scripts, instructions, and configuration files; update Angular dependencies and improve employee list functionality with enhanced loading and error handling.
+[33m0476193[m Merge: resueltos conflictos en package.json y package-lock.json
+[33m1fa65ac[m ActualizaciÃ³n: mejoras en reportes, empleados y configuraciÃ³n del sistema
+[33mcb1cd09[m Merge branch 'dev' of https://github.com/gabrielaortiz-dev/RRHH into dev
+[33maa5b2ec[m Ajustes de estilos: fondo blanco en selectores y menÃºs desplegables
+[33m0bdf385[m Merge main into dev: formulario empleados completo
+[33mcb07282[m Mejorado formulario de empleados con 9 secciones completas y correcciones de visualizaciÃ³n
+[33m0fc95b9[m ImplementaciÃ³n completa del mÃ³dulo de empleados mejorado con formulario expandido
+[33m80b0b7b[m feat: Implementar sistema de autenticaciÃ³n y tema Genesis
+[33m8c1542f[m Initial Commit
+[33mdceef54[m Merge branch 'main' of https://github.com/gabrielaortiz-dev/RRHH
+[33mce81907[m Initial commit
+[33m9c0688e[m Initial commit: RRHH Angular application
+[33m0247080[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mdev[m[33m, [m[1;31morigin/dev[m[33m)[m Actualización: submodule RRHH actualizado con los últimos cambios
+[33m509a3e9[m Actualización: mejoras en backend y documentación - Actualización de database.py, main.py y models.py - Agregada documentación de implementación completa - Agregado resumen de implementación
+[33m0744f2d[m Actualización: mejoras en formularios y servicios - Actualización de formularios de payroll y vacations - Agregados nuevos servicios (document, payroll, vacation)
+[33me6b401e[m Actualizar referencia del submódulo RRHH con los nuevos módulos
+[33m6259ed7[m Nuevos módulos: usuarios, asistencia, contratos, nómina y vacaciones; mejoras en menú y reportes
+[33mb8a796a[m Actualización: nuevos scripts, configuración de usuarios y mejoras en la plataforma
+[33m967eb93[m Merge branch 'dev' of https://github.com/gabrielaortiz-dev/RRHH.git into dev
+[33m7515f42[m ActualizaciÃ³n de referencia del submÃ³dulo RRHH
+[33mdeaa234[m ActualizaciÃ³n de cambios en el proyecto
+[33m2509ccd[m ActualizaciÃ³n de cambios en dev
+[33m2f54375[m Actualizar referencia del submÃ³dulo RRHH
+[33md36b7b1[m Limpieza de estructura y actualizaciÃ³n de notificaciones
+[33m83069da[m[33m ([m[1;32mmaster[m[33m)[m feat: Agregar tablas de base de datos (Departamentos, Puestos, Empleados, Contratos, Asistencias, Capacitaciones, Evaluaciones, Nomina, Vacaciones_Permisos)
+[33m4a24cce[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m Merge pull request #3 from gabrielaortiz-dev/sisback
+[33m24c84c1[m[33m ([m[1;31morigin/sisback[m[33m)[m Remove obsolete batch scripts, instructions, and configuration files; update Angular dependencies and improve employee list functionality with enhanced loading and error handling.
+[33m0476193[m Merge: resueltos conflictos en package.json y package-lock.json
+[33m1fa65ac[m ActualizaciÃ³n: mejoras en reportes, empleados y configuraciÃ³n del sistema
+[33mcb1cd09[m Merge branch 'dev' of https://github.com/gabrielaortiz-dev/RRHH into dev
+[33maa5b2ec[m Ajustes de estilos: fondo blanco en selectores y menÃºs desplegables
+[33m0bdf385[m Merge main into dev: formulario empleados completo
