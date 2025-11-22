@@ -24,6 +24,20 @@ export class GeneralSettings {
   darkMode = signal(false);
   notifications = signal(true);
   emailNotifications = signal(true);
+  
+  // Parámetros generales
+  minSalary = signal(8000);
+  workHours = signal(8);
+  workDays = signal(5);
+  vacationDays = signal(15);
+  
+  // Políticas
+  allowRemoteWork = signal(false);
+  requireApprovalForVacations = signal(true);
+  
+  // Integraciones
+  accountingIntegration = signal(false);
+  academicIntegration = signal(false);
 
   languages = [
     { label: 'Español', value: 'es' },
@@ -39,7 +53,18 @@ export class GeneralSettings {
     this.settingsForm = this.fb.group({
       companyName: ['RRHH System', Validators.required],
       language: ['es', Validators.required],
-      theme: ['light', Validators.required]
+      theme: ['light', Validators.required],
+      // Parámetros generales
+      minSalary: [8000, [Validators.required, Validators.min(0)]],
+      workHours: [8, [Validators.required, Validators.min(1), Validators.max(12)]],
+      workDays: [5, [Validators.required, Validators.min(1), Validators.max(7)]],
+      vacationDays: [15, [Validators.required, Validators.min(0)]],
+      // Políticas
+      allowRemoteWork: [false],
+      requireApprovalForVacations: [true],
+      // Integraciones
+      accountingIntegration: [false],
+      academicIntegration: [false]
     });
   }
 

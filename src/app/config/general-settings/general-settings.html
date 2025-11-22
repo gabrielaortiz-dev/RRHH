@@ -28,6 +28,42 @@
       </form>
     </p-card>
 
+    <p-card header="Parámetros Generales">
+      <form [formGroup]="settingsForm">
+        <div class="form-field">
+          <label for="minSalary">Salario Mínimo (HNL)</label>
+          <input pInputText type="number" id="minSalary" formControlName="minSalary" />
+        </div>
+
+        <div class="form-field">
+          <label for="workHours">Horas de Trabajo Diarias</label>
+          <input pInputText type="number" id="workHours" formControlName="workHours" />
+        </div>
+
+        <div class="form-field">
+          <label for="workDays">Días de Trabajo Semanales</label>
+          <input pInputText type="number" id="workDays" formControlName="workDays" />
+        </div>
+
+        <div class="form-field">
+          <label for="vacationDays">Días de Vacaciones Anuales</label>
+          <input pInputText type="number" id="vacationDays" formControlName="vacationDays" />
+        </div>
+      </form>
+    </p-card>
+
+    <p-card header="Políticas">
+      <div class="switch-field">
+        <label for="allowRemoteWork">Permitir Trabajo Remoto</label>
+        <p-checkbox [(ngModel)]="allowRemoteWork" [binary]="true" inputId="allowRemoteWork"></p-checkbox>
+      </div>
+
+      <div class="switch-field">
+        <label for="requireApprovalForVacations">Requerir Aprobación para Vacaciones</label>
+        <p-checkbox [(ngModel)]="requireApprovalForVacations" [binary]="true" inputId="requireApprovalForVacations"></p-checkbox>
+      </div>
+    </p-card>
+
     <p-card header="Notificaciones">
       <div class="switch-field">
         <label for="notifications">Notificaciones del Sistema</label>
@@ -42,6 +78,18 @@
       <div class="switch-field">
         <label for="darkMode">Modo Oscuro</label>
         <p-checkbox [(ngModel)]="darkMode" [binary]="true" inputId="darkMode"></p-checkbox>
+      </div>
+    </p-card>
+
+    <p-card header="Integraciones">
+      <div class="switch-field">
+        <label for="accountingIntegration">Integración con Sistema Contable</label>
+        <p-checkbox [(ngModel)]="accountingIntegration" [binary]="true" inputId="accountingIntegration"></p-checkbox>
+      </div>
+
+      <div class="switch-field">
+        <label for="academicIntegration">Integración con Sistema Académico</label>
+        <p-checkbox [(ngModel)]="academicIntegration" [binary]="true" inputId="academicIntegration"></p-checkbox>
       </div>
     </p-card>
   </div>

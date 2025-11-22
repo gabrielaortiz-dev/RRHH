@@ -22,21 +22,25 @@
             @if (!item.separator) {
               <li class="menu-item" [class.has-submenu]="item.items" [class.active]="isActive(item)">
                 @if (item.items && item.items.length > 0) {
-                  <a class="menu-link" (click)="toggleSubmenu(item)" [class.active]="item.expanded">
+                  <a class="menu-link" (click)="toggleSubmenu(item)" [class.active]="item.expanded"
+                     [pTooltip]="sidebarCollapsed() ? item.label : ''" tooltipPosition="right">
                     <i [class]="item.icon"></i>
                     @if (!sidebarCollapsed()) {
                       <span class="menu-text">{{ item.label }}</span>
                       <i class="pi pi-chevron-down submenu-icon" [class.rotated]="item.expanded"></i>
                     }
                   </a>
-                  @if (item.expanded && !sidebarCollapsed()) {
-                    <ul class="submenu">
+                  @if (item.expanded && item.items && item.items.length > 0) {
+                    <ul class="submenu" [class.collapsed-submenu]="sidebarCollapsed()">
                       @for (subitem of item.items; track subitem.label) {
                         @if (!subitem.separator) {
                           <li>
-                            <a [routerLink]="subitem.routerLink" routerLinkActive="active" class="submenu-link">
+                            <a [routerLink]="subitem.routerLink" routerLinkActive="active" class="submenu-link"
+                               [pTooltip]="sidebarCollapsed() ? subitem.label : ''" tooltipPosition="right">
                               <i [class]="subitem.icon"></i>
-                              <span>{{ subitem.label }}</span>
+                              @if (!sidebarCollapsed()) {
+                                <span>{{ subitem.label }}</span>
+                              }
                             </a>
                           </li>
                         } @else {
@@ -47,14 +51,16 @@
                   }
                 } @else {
                   @if (item.command) {
-                    <a class="menu-link" (click)="executeCommand(item)">
+                    <a class="menu-link" (click)="executeCommand(item)"
+                       [pTooltip]="sidebarCollapsed() ? item.label : ''" tooltipPosition="right">
                       <i [class]="item.icon"></i>
                       @if (!sidebarCollapsed()) {
                         <span class="menu-text">{{ item.label }}</span>
                       }
                     </a>
                   } @else {
-                    <a [routerLink]="item.routerLink" routerLinkActive="active" class="menu-link">
+                    <a [routerLink]="item.routerLink" routerLinkActive="active" class="menu-link"
+                       [pTooltip]="sidebarCollapsed() ? item.label : ''" tooltipPosition="right">
                       <i [class]="item.icon"></i>
                       @if (!sidebarCollapsed()) {
                         <span class="menu-text">{{ item.label }}</span>

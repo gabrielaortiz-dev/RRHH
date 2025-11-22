@@ -121,6 +121,7 @@
 
 .menu-item {
   margin: 0.25rem 0;
+  position: relative;
 }
 
 .menu-link {
@@ -192,6 +193,20 @@
   padding: 0.5rem 0 0.5rem 2.5rem;
   margin: 0;
   animation: slideDown 0.3s ease;
+}
+
+.submenu.collapsed-submenu {
+  position: absolute;
+  left: 80px;
+  top: 0;
+  background: white;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  padding: 0.5rem;
+  min-width: 200px;
+  box-shadow: 4px 4px 12px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  margin-left: 8px;
 }
 
 @keyframes slideDown {
@@ -302,8 +317,11 @@
 .sidebar.collapsed .menu-text,
 .sidebar.collapsed .submenu-icon,
 .sidebar.collapsed .section-title,
-.sidebar.collapsed .submenu,
 .sidebar.collapsed .user-details {
+  display: none;
+}
+
+.sidebar.collapsed .submenu:not(.collapsed-submenu) {
   display: none;
 }
 

@@ -1,16 +1,19 @@
-import { Component, inject, computed } from '@angular/core';
+import { Component, inject, computed, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { CardModule } from 'primeng/card';
 import { ButtonModule } from 'primeng/button';
 import { ChartModule } from 'primeng/chart';
 import { TableModule } from 'primeng/table';
+import { SelectModule } from 'primeng/select';
+import { DatePickerModule } from 'primeng/datepicker';
 import { EmployeeService } from '../../services/employee.service';
 import { DepartmentService } from '../../services/department.service';
 
 @Component({
   selector: 'app-general-report',
   standalone: true,
-  imports: [CommonModule, CardModule, ButtonModule, ChartModule, TableModule],
+  imports: [CommonModule, FormsModule, CardModule, ButtonModule, ChartModule, TableModule, SelectModule, DatePickerModule],
   templateUrl: './general-report.html',
   styleUrl: './general-report.css'
 })
@@ -52,8 +55,6 @@ export class GeneralReport {
     }
   };
 
-  departments = this.departmentService.getDepartments();
-
   formatCurrency(value: number): string {
     return new Intl.NumberFormat('es-HN', {
       style: 'currency',
@@ -63,16 +64,111 @@ export class GeneralReport {
     }).format(value);
   }
 
+  // Filtros
+  selectedDepartment = signal<string>('');
+  selectedContractType = signal<string>('');
+  startDate = signal<Date | null>(null);
+  endDate = signal<Date | null>(null);
+
+  departments = computed(() => {
+    const depts = this.departmentService.getDepartments();
+    return [{ label: 'Todos', value: '' }, ...depts().map(d => ({ label: d.nombre, value: d.nombre }))];
+  });
+
+  contractTypes = [
+    { label: 'Todos', value: '' },
+    { label: 'Tiempo Completo', value: 'Tiempo Completo' },
+    { label: 'Medio Tiempo', value: 'Medio Tiempo' },
+    { label: 'Por Proyecto', value: 'Por Proyecto' },
+    { label: 'Temporal', value: 'Temporal' }
+  ];
+
+  // Indicadores clave
+  turnoverRate = computed(() => {
+    const total = this.totalEmployees();
+    const inactive = this.inactiveEmployees();
+    return total > 0 ? ((inactive / total) * 100).toFixed(2) : '0.00';
+  });
+
+  attendanceRate = computed(() => {
+    // Simulación de tasa de asistencia
+    return '92.5';
+  });
+
+  trainingRate = computed(() => {
+    // Simulación de tasa de capacitación
+    return '75.0';
+  });
+
   exportPDF() {
-    alert('Función de exportación a PDF en desarrollo');
+    const reportData = {
+      fecha: new Date().toLocaleDateString('es-DO'),
+      totalEmpleados: this.totalEmployees(),
+      empleadosActivos: this.activeEmployees(),
+      salarioPromedio: this.averageSalary(),
+      rotacion: this.turnoverRate(),
+      asistencia: this.attendanceRate(),
+      capacitacion: this.trainingRate()
+    };
+
+    const content = `
+      REPORTE GENERAL DE RRHH
+      ========================
+      Fecha: ${reportData.fecha}
+      
+      INDICADORES CLAVE:
+      - Total Empleados: ${reportData.totalEmpleados}
+      - Empleados Activos: ${reportData.empleadosActivos}
+      - Salario Promedio: ${this.formatCurrency(reportData.salarioPromedio)}
+      - Tasa de Rotación: ${reportData.rotacion}%
+      - Tasa de Asistencia: ${reportData.asistencia}%
+      - Tasa de Capacitación: ${reportData.capacitacion}%
+    `;
+
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `Reporte_General_${new Date().toISOString().split('T')[0]}.txt`;
+    link.click();
+    window.URL.revokeObjectURL(url);
   }
 
   exportExcel() {
-    alert('Función de exportación a Excel en desarrollo');
+    // Simulación de exportación a Excel
+    const csvContent = `Empleado,Departamento,Salario,Estado\n` +
+      this.employeeService.getEmployees()().map(emp => 
+        `${emp.nombre} ${emp.apellido},${emp.departamento},${emp.salario},${emp.estado}`
+      ).join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `Reporte_General_${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+    window.URL.revokeObjectURL(url);
   }
 
   print() {
     window.print();
+  }
+
+  applyFilters() {
+    // Aplicar filtros (implementación básica)
+    console.log('Aplicando filtros:', {
+      department: this.selectedDepartment(),
+      contractType: this.selectedContractType(),
+      startDate: this.startDate(),
+      endDate: this.endDate()
+    });
+  }
+
+  clearFilters() {
+    this.selectedDepartment.set('');
+    this.selectedContractType.set('');
+    this.startDate.set(null);
+    this.endDate.set(null);
   }
 }
 

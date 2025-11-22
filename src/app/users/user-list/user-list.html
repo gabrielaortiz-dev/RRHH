@@ -1,0 +1,218 @@
+<div class="user-list-container">
+  <p-toast />
+  <p-confirmDialog />
+
+  <div class="page-header">
+    <div class="header-content">
+      <h1><i class="pi pi-users"></i> Gestión de Usuarios y Roles</h1>
+      <p>Administra usuarios, roles y permisos del sistema</p>
+    </div>
+    <div style="display: flex; gap: 1rem;">
+      <button 
+        pButton 
+        label="Ver Auditoría"
+        icon="pi pi-shield"
+        class="p-button-outlined"
+        (click)="viewAuditLogs()">
+      </button>
+      <a routerLink="/usuarios/nuevo" class="add-button">
+        <i class="pi pi-plus"></i>
+        Nuevo Usuario
+      </a>
+    </div>
+  </div>
+
+  <div class="table-card">
+    <p-table 
+      #dt
+      [value]="users()" 
+      [paginator]="true" 
+      [rows]="10"
+      [showCurrentPageReport]="true"
+      currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} usuarios"
+      [rowsPerPageOptions]="[5, 10, 25, 50]"
+      [globalFilterFields]="['username', 'name', 'email', 'role']"
+      [tableStyle]="{ 'min-width': '75rem' }"
+      styleClass="p-datatable-gridlines p-datatable-striped">
+      
+      <ng-template pTemplate="caption">
+        <div class="table-header">
+          <span class="p-input-icon-left">
+            <i class="pi pi-search"></i>
+            <input 
+              pInputText 
+              type="text" 
+              (input)="dt.filterGlobal($any($event.target).value, 'contains')"
+              placeholder="Buscar usuarios..." 
+              class="search-input" />
+          </span>
+          <span class="total-badge">
+            Total: {{ users().length }} usuarios
+          </span>
+        </div>
+      </ng-template>
+
+      <ng-template pTemplate="header">
+        <tr>
+          <th pSortableColumn="id">ID <p-sortIcon field="id" /></th>
+          <th pSortableColumn="username">Usuario <p-sortIcon field="username" /></th>
+          <th pSortableColumn="name">Nombre <p-sortIcon field="name" /></th>
+          <th pSortableColumn="email">Email <p-sortIcon field="email" /></th>
+          <th pSortableColumn="role">Rol <p-sortIcon field="role" /></th>
+          <th pSortableColumn="status">Estado <p-sortIcon field="status" /></th>
+          <th pSortableColumn="lastLogin">Último Acceso <p-sortIcon field="lastLogin" /></th>
+          <th>Acciones</th>
+        </tr>
+      </ng-template>
+
+      <ng-template pTemplate="body" let-user>
+        <tr>
+          <td>{{ user.id }}</td>
+          <td><strong>{{ user.username }}</strong></td>
+          <td>{{ user.name }}</td>
+          <td>
+            <a [href]="'mailto:' + user.email" class="email-link">
+              {{ user.email }}
+            </a>
+          </td>
+          <td>
+            <p-tag 
+              [value]="user.role" 
+              [severity]="getRoleSeverity(user.role)">
+            </p-tag>
+          </td>
+          <td>
+            <p-tag 
+              [value]="user.status" 
+              [severity]="getSeverity(user.status)">
+            </p-tag>
+          </td>
+          <td>{{ formatDate(user.lastLogin) }}</td>
+          <td>
+            <div class="action-buttons">
+              <button 
+                pButton 
+                icon="pi pi-key" 
+                class="p-button-rounded p-button-warning p-button-text"
+                (click)="managePermissions(user)"
+                pTooltip="Gestionar Permisos"
+                tooltipPosition="top">
+              </button>
+              <button 
+                pButton 
+                icon="pi pi-pencil" 
+                class="p-button-rounded p-button-info p-button-text"
+                (click)="editUser(user)"
+                pTooltip="Editar"
+                tooltipPosition="top">
+              </button>
+              <button 
+                pButton 
+                [icon]="user.status === 'Activo' ? 'pi pi-ban' : 'pi pi-check'"
+                [class]="'p-button-rounded p-button-text ' + (user.status === 'Activo' ? 'p-button-warning' : 'p-button-success')"
+                (click)="toggleUserStatus(user)"
+                [pTooltip]="user.status === 'Activo' ? 'Desactivar' : 'Activar'"
+                tooltipPosition="top">
+              </button>
+              <button 
+                pButton 
+                icon="pi pi-trash" 
+                class="p-button-rounded p-button-danger p-button-text"
+                (click)="deleteUser(user)"
+                pTooltip="Eliminar"
+                tooltipPosition="top">
+              </button>
+            </div>
+          </td>
+        </tr>
+      </ng-template>
+
+      <ng-template pTemplate="emptymessage">
+        <tr>
+          <td colspan="8" class="empty-message">
+            <div class="empty-state">
+              <i class="pi pi-users"></i>
+              <h3>No hay usuarios registrados</h3>
+              <p>Comienza creando el primer usuario</p>
+              <a routerLink="/usuarios/nuevo" class="add-first-button">
+                <i class="pi pi-plus"></i>
+                Nuevo Usuario
+              </a>
+            </div>
+          </td>
+        </tr>
+      </ng-template>
+    </p-table>
+  </div>
+
+  <!-- Dialog de Permisos -->
+  <p-dialog 
+    [visible]="showPermissionsDialog()"`n    (visibleChange)="showPermissionsDialog.set($event)" 
+    [modal]="true" 
+    [style]="{ width: '600px' }"
+    header="Gestionar Permisos">
+    @if (selectedUser(); as user) {
+      <div class="permissions-content">
+        <div class="user-info">
+          <h3>{{ user.name }}</h3>
+          <p class="user-role">{{ user.role }}</p>
+        </div>
+        <div class="permissions-list">
+          <h4>Permisos por Módulo</h4>
+          @for (module of modules; track module.value) {
+            <div class="permission-item">
+              <p-checkbox 
+                [ngModel]="user.permissions.includes('all') || user.permissions.includes(module.value)"
+                [disabled]="user.permissions.includes('all')">
+              </p-checkbox>
+              <label>{{ module.label }}</label>
+            </div>
+          }
+        </div>
+        <div class="dialog-actions">
+          <button 
+            pButton 
+            label="Guardar"
+            icon="pi pi-check"
+            (click)="showPermissionsDialog.set(false)">
+          </button>
+        </div>
+      </div>
+    }
+  </p-dialog>
+
+  <!-- Dialog de Auditoría -->
+  <p-dialog 
+    [visible]="showAuditDialog()"`n    (visibleChange)="showAuditDialog.set($event)" 
+    [modal]="true" 
+    [style]="{ width: '900px' }"
+    header="Registro de Auditoría y Seguridad">
+    <div class="audit-content">
+      <p-table [value]="auditLogs()" [paginator]="true" [rows]="10" styleClass="p-datatable-striped">
+        <ng-template pTemplate="header">
+          <tr>
+            <th>Fecha/Hora</th>
+            <th>Usuario</th>
+            <th>Acción</th>
+            <th>Módulo</th>
+            <th>IP</th>
+            <th>Detalles</th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-log>
+          <tr>
+            <td>{{ formatDate(log.timestamp) }}</td>
+            <td><strong>{{ log.userName }}</strong></td>
+            <td>
+              <span class="action-badge">{{ log.action }}</span>
+            </td>
+            <td>{{ log.module }}</td>
+            <td>{{ log.ipAddress }}</td>
+            <td>{{ log.details || '-' }}</td>
+          </tr>
+        </ng-template>
+      </p-table>
+    </div>
+  </p-dialog>
+</div>
+

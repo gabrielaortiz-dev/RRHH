@@ -1,0 +1,141 @@
+<div class="vacation-form-container">
+  <p-toast />
+
+  <div class="page-header">
+    <div class="header-content">
+      <h1><i class="pi pi-calendar-plus"></i> Solicitar Vacaciones o Permisos</h1>
+      <p>Completa el formulario para solicitar vacaciones o permisos</p>
+    </div>
+  </div>
+
+  <div class="form-card">
+    <p-card>
+      <form [formGroup]="vacationForm" (ngSubmit)="onSubmit()">
+        <!-- Información Básica -->
+        <div class="form-section">
+          <h2><i class="pi pi-info-circle"></i> Información de la Solicitud</h2>
+          <div class="form-grid">
+            <div class="form-field">
+              <label>Empleado <span class="required">*</span></label>
+              <p-select 
+                formControlName="employeeId"
+                [options]="employees"
+                placeholder="Seleccione un empleado"
+                [class.p-invalid]="submitted && vacationForm.get('employeeId')?.invalid">
+              </p-select>
+              @if (submitted && vacationForm.get('employeeId')?.invalid) {
+                <small class="p-error">El empleado es requerido</small>
+              }
+              @if (selectedEmployee()) {
+                <small class="info-text">
+                  <i class="pi pi-info-circle"></i>
+                  Días disponibles: {{ availableDays() }} días
+                </small>
+              }
+            </div>
+
+            <div class="form-field">
+              <label>Tipo de Solicitud <span class="required">*</span></label>
+              <p-select 
+                formControlName="type"
+                [options]="vacationTypes"
+                placeholder="Seleccione el tipo"
+                [class.p-invalid]="submitted && vacationForm.get('type')?.invalid">
+              </p-select>
+              @if (submitted && vacationForm.get('type')?.invalid) {
+                <small class="p-error">El tipo es requerido</small>
+              }
+            </div>
+
+            <div class="form-field">
+              <label>Fecha de Inicio <span class="required">*</span></label>
+              <p-datepicker 
+                formControlName="startDate"
+                [showIcon]="true"
+                dateFormat="dd/mm/yy"
+                placeholder="Seleccione fecha inicio"
+                [class.p-invalid]="submitted && vacationForm.get('startDate')?.invalid">
+              </p-datepicker>
+              @if (submitted && vacationForm.get('startDate')?.invalid) {
+                <small class="p-error">La fecha de inicio es requerida</small>
+              }
+            </div>
+
+            <div class="form-field">
+              <label>Fecha de Fin <span class="required">*</span></label>
+              <p-datepicker 
+                formControlName="endDate"
+                [showIcon]="true"
+                dateFormat="dd/mm/yy"
+                placeholder="Seleccione fecha fin"
+                [class.p-invalid]="submitted && vacationForm.get('endDate')?.invalid">
+              </p-datepicker>
+              @if (submitted && vacationForm.get('endDate')?.invalid) {
+                <small class="p-error">La fecha de fin es requerida</small>
+              }
+            </div>
+
+            <div class="form-field full-width">
+              <label>Motivo <span class="required">*</span></label>
+              <textarea 
+                formControlName="reason"
+                rows="4"
+                placeholder="Describa el motivo de la solicitud..."
+                [class.p-invalid]="submitted && vacationForm.get('reason')?.invalid">
+              </textarea>
+              @if (submitted && vacationForm.get('reason')?.invalid) {
+                <small class="p-error">El motivo es requerido</small>
+              }
+            </div>
+          </div>
+        </div>
+
+        <!-- Resumen -->
+        @if (calculatedDays() > 0) {
+          <div class="form-section summary-section">
+            <h2><i class="pi pi-chart-line"></i> Resumen</h2>
+            <div class="summary-card">
+              <div class="summary-row">
+                <span>Días Solicitados:</span>
+                <strong class="days-text">{{ calculatedDays() }} días</strong>
+              </div>
+              <div class="summary-row">
+                <span>Días Disponibles:</span>
+                <strong class="available-text">{{ availableDays() }} días</strong>
+              </div>
+              <div class="summary-row total-row">
+                <span>Días Restantes:</span>
+                <strong class="remaining-text">{{ availableDays() - calculatedDays() }} días</strong>
+              </div>
+              @if (calculatedDays() > availableDays()) {
+                <div class="alert-message">
+                  <i class="pi pi-exclamation-triangle"></i>
+                  Los días solicitados exceden los días disponibles
+                </div>
+              }
+            </div>
+          </div>
+        }
+
+        <!-- Form Actions -->
+        <div class="form-actions">
+          <button 
+            type="button"
+            pButton 
+            label="Cancelar"
+            icon="pi pi-times"
+            class="p-button-secondary"
+            (click)="onCancel()">
+          </button>
+          <button 
+            type="submit"
+            pButton 
+            label="Enviar Solicitud"
+            icon="pi pi-check">
+          </button>
+        </div>
+      </form>
+    </p-card>
+  </div>
+</div>
+

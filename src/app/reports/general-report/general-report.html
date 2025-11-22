@@ -11,6 +11,59 @@
     </div>
   </div>
 
+  <!-- Filtros -->
+  <p-card header="Filtros" class="filters-card">
+    <div class="filters-grid">
+      <div class="filter-field">
+        <label>Departamento</label>
+        <p-select [options]="departments()" [(ngModel)]="selectedDepartment" placeholder="Todos los departamentos"></p-select>
+      </div>
+      <div class="filter-field">
+        <label>Tipo de Contrato</label>
+        <p-select [options]="contractTypes" [(ngModel)]="selectedContractType" placeholder="Todos los tipos"></p-select>
+      </div>
+      <div class="filter-field">
+        <label>Fecha Inicio</label>
+        <p-datepicker [(ngModel)]="startDate" [showIcon]="true" placeholder="Seleccionar fecha"></p-datepicker>
+      </div>
+      <div class="filter-field">
+        <label>Fecha Fin</label>
+        <p-datepicker [(ngModel)]="endDate" [showIcon]="true" placeholder="Seleccionar fecha"></p-datepicker>
+      </div>
+    </div>
+    <div class="filter-actions">
+      <button pButton label="Aplicar Filtros" icon="pi pi-filter" (click)="applyFilters()"></button>
+      <button pButton label="Limpiar" icon="pi pi-times" class="p-button-secondary" (click)="clearFilters()"></button>
+    </div>
+  </p-card>
+
+  <!-- Indicadores Clave -->
+  <p-card header="Indicadores Clave (KPIs)" class="section-card">
+    <div class="stats-grid">
+      <div class="stat-item kpi-item">
+        <i class="pi pi-sync stat-icon rotation"></i>
+        <div>
+          <p class="stat-label">Tasa de Rotación</p>
+          <h2 class="stat-value">{{ turnoverRate() }}%</h2>
+        </div>
+      </div>
+      <div class="stat-item kpi-item">
+        <i class="pi pi-calendar-check stat-icon attendance"></i>
+        <div>
+          <p class="stat-label">Tasa de Asistencia</p>
+          <h2 class="stat-value">{{ attendanceRate() }}%</h2>
+        </div>
+      </div>
+      <div class="stat-item kpi-item">
+        <i class="pi pi-graduation-cap stat-icon training"></i>
+        <div>
+          <p class="stat-label">Tasa de Capacitación</p>
+          <h2 class="stat-value">{{ trainingRate() }}%</h2>
+        </div>
+      </div>
+    </div>
+  </p-card>
+
   <!-- Resumen de Empleados -->
   <p-card header="Resumen de Empleados" class="section-card">
     <div class="stats-grid">

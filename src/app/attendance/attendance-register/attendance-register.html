@@ -1,0 +1,116 @@
+<div class="attendance-register-container">
+  <p-card header="Registrar Asistencia">
+    <form [formGroup]="attendanceForm" (ngSubmit)="onSubmit()">
+      <div class="form-grid">
+        <div class="form-group">
+          <label for="id_empleado">Empleado <span class="required">*</span></label>
+          <p-select formControlName="id_empleado" 
+                   [options]="empleados()" 
+                   optionLabel="nombre"
+                   placeholder="Seleccione un empleado"
+                   [showClear]="true">
+            <ng-template let-empleado pTemplate="item">
+              <div>{{ empleado.nombre }} {{ empleado.apellido }}</div>
+            </ng-template>
+          </p-select>
+          @if (attendanceForm.get('id_empleado')?.invalid && attendanceForm.get('id_empleado')?.touched) {
+            <small class="error">El empleado es requerido</small>
+          }
+        </div>
+
+        <div class="form-group">
+          <label for="fecha">Fecha <span class="required">*</span></label>
+          <p-calendar formControlName="fecha" 
+                     dateFormat="yy-mm-dd"
+                     placeholder="Seleccione la fecha">
+            <ng-template pTemplate="inputicon">
+              <i class="pi pi-calendar"></i>
+            </ng-template>
+          </p-calendar>
+          @if (attendanceForm.get('fecha')?.invalid && attendanceForm.get('fecha')?.touched) {
+            <small class="error">La fecha es requerida</small>
+          }
+        </div>
+
+        <div class="form-group">
+          <label for="hora_entrada">Hora de Entrada</label>
+          <div class="input-with-button">
+            <input pInputText 
+                   type="time"
+                   formControlName="hora_entrada"
+                   placeholder="HH:MM">
+            <button pButton type="button" 
+                    icon="pi pi-clock" 
+                    class="p-button-help"
+                    (click)="marcarEntrada()"
+                    pTooltip="Marcar hora actual">
+            </button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="hora_salida">Hora de Salida</label>
+          <div class="input-with-button">
+            <input pInputText 
+                   type="time"
+                   formControlName="hora_salida"
+                   placeholder="HH:MM">
+            <button pButton type="button" 
+                    icon="pi pi-clock" 
+                    class="p-button-help"
+                    (click)="marcarSalida()"
+                    pTooltip="Marcar hora actual">
+            </button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Método de Registro</label>
+          <div class="radio-group">
+            <label class="radio-label">
+              <input type="radio" 
+                     [value]="'manual'" 
+                     [(ngModel)]="metodoRegistro"
+                     [ngModelOptions]="{standalone: true}">
+              Manual
+            </label>
+            <label class="radio-label">
+              <input type="radio" 
+                     [value]="'biometrico'" 
+                     [(ngModel)]="metodoRegistro"
+                     [ngModelOptions]="{standalone: true}">
+              Reloj Biométrico
+            </label>
+          </div>
+        </div>
+
+        <div class="form-group full-width">
+          <label for="observaciones">Justificaciones / Observaciones</label>
+          <textarea pInputTextarea 
+                    formControlName="observaciones"
+                    rows="4"
+                    placeholder="Ingrese justificaciones u observaciones sobre la asistencia...">
+          </textarea>
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <button pButton type="button" 
+                label="Cancelar" 
+                icon="pi pi-times"
+                class="p-button-secondary"
+                (click)="cancel()"
+                [disabled]="loading()">
+        </button>
+        <button pButton type="submit" 
+                label="Registrar Asistencia" 
+                icon="pi pi-check"
+                [loading]="loading()">
+        </button>
+      </div>
+    </form>
+  </p-card>
+</div>
+
+<p-toast></p-toast>
+

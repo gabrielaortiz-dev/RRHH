@@ -1,0 +1,224 @@
+<div class="contract-form-container">
+  <p-toast></p-toast>
+
+  <div class="page-header">
+    <div class="header-content">
+      <h1><i class="pi pi-file-edit"></i> {{ isEdit() ? 'Editar Contrato' : 'Nuevo Contrato' }}</h1>
+      <p>Complete la información del contrato laboral</p>
+    </div>
+  </div>
+
+  <div class="form-card">
+    <p-card>
+      <form [formGroup]="contractForm" (ngSubmit)="onSubmit()">
+        
+        <!-- 1. INFORMACIÓN PRINCIPAL -->
+        <div class="collapsible-section section-principal">
+          <div class="section-header-collapsible" (click)="showPrincipal.set(!showPrincipal())">
+            <div class="tab-header">
+              <i class="pi pi-user"></i>
+              <span>1. Información Principal</span>
+            </div>
+            <i [class]="showPrincipal() ? 'pi pi-chevron-up' : 'pi pi-chevron-down'"></i>
+          </div>
+
+          @if (showPrincipal()) {
+            <div class="section-content">
+              <div class="form-section">
+                <h3><i class="pi pi-id-card"></i> Datos del Contrato</h3>
+                <div class="form-grid">
+                  <div class="form-field-wrapper">
+                    <div class="form-field">
+                      <label for="id_empleado">Empleado *</label>
+                      <p-select 
+                        id="id_empleado"
+                        formControlName="id_empleado" 
+                        [options]="empleados()" 
+                        optionLabel="nombre"
+                        placeholder="Seleccione un empleado"
+                        [showClear]="true"
+                        [class.p-invalid]="contractForm.get('id_empleado')?.invalid && contractForm.get('id_empleado')?.touched">
+                        <ng-template let-empleado pTemplate="item">
+                          <div>{{ empleado.nombre }} {{ empleado.apellido }}</div>
+                        </ng-template>
+                      </p-select>
+                      @if (contractForm.get('id_empleado')?.invalid && contractForm.get('id_empleado')?.touched) {
+                        <small class="p-error">El empleado es requerido</small>
+                      }
+                    </div>
+                  </div>
+
+                  <div class="form-field-wrapper">
+                    <div class="form-field">
+                      <label for="tipo_contrato">Tipo de Contrato *</label>
+                      <p-select 
+                        id="tipo_contrato"
+                        formControlName="tipo_contrato" 
+                        [options]="tiposContrato" 
+                        optionLabel="label"
+                        optionValue="value"
+                        placeholder="Seleccione el tipo"
+                        [class.p-invalid]="contractForm.get('tipo_contrato')?.invalid && contractForm.get('tipo_contrato')?.touched">
+                      </p-select>
+                      @if (contractForm.get('tipo_contrato')?.invalid && contractForm.get('tipo_contrato')?.touched) {
+                        <small class="p-error">El tipo de contrato es requerido</small>
+                      }
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          }
+        </div>
+
+        <!-- 2. FECHAS DEL CONTRATO -->
+        <div class="collapsible-section section-fechas">
+          <div class="section-header-collapsible" (click)="showFechas.set(!showFechas())">
+            <div class="tab-header">
+              <i class="pi pi-calendar"></i>
+              <span>2. Fechas del Contrato</span>
+            </div>
+            <i [class]="showFechas() ? 'pi pi-chevron-up' : 'pi pi-chevron-down'"></i>
+          </div>
+
+          @if (showFechas()) {
+            <div class="section-content">
+              <div class="form-section">
+                <h3><i class="pi pi-calendar-times"></i> Período de Vigencia</h3>
+                <div class="form-grid">
+                  <div class="form-field-wrapper">
+                    <div class="form-field">
+                      <label for="fecha_inicio">Fecha de Inicio *</label>
+                      <div class="card flex justify-center">
+                        <p-datepicker 
+                          id="fecha_inicio"
+                          formControlName="fecha_inicio" 
+                          dateFormat="dd/mm/yy"
+                          [class.p-invalid]="contractForm.get('fecha_inicio')?.invalid && contractForm.get('fecha_inicio')?.touched">
+                          <ng-template pTemplate="inputicon">
+                            <i class="pi pi-calendar"></i>
+                          </ng-template>
+                        </p-datepicker>
+                      </div>
+                      @if (contractForm.get('fecha_inicio')?.invalid && contractForm.get('fecha_inicio')?.touched) {
+                        <small class="p-error">La fecha de inicio es requerida</small>
+                      }
+                    </div>
+                  </div>
+
+                  <div class="form-field-wrapper">
+                    <div class="form-field">
+                      <label for="fecha_fin">Fecha de Fin</label>
+                      <div class="card flex justify-center">
+                        <p-datepicker 
+                          id="fecha_fin"
+                          formControlName="fecha_fin" 
+                          dateFormat="dd/mm/yy">
+                          <ng-template pTemplate="inputicon">
+                            <i class="pi pi-calendar"></i>
+                          </ng-template>
+                        </p-datepicker>
+                      </div>
+                      <small style="color: #64748b; font-size: 0.8125rem; margin-top: 0.5rem; display: block;">Deje vacío para contratos permanentes</small>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          }
+        </div>
+
+        <!-- 3. INFORMACIÓN SALARIAL -->
+        <div class="collapsible-section section-salarial">
+          <div class="section-header-collapsible" (click)="showSalarial.set(!showSalarial())">
+            <div class="tab-header">
+              <i class="pi pi-money-bill"></i>
+              <span>3. Información Salarial</span>
+            </div>
+            <i [class]="showSalarial() ? 'pi pi-chevron-up' : 'pi pi-chevron-down'"></i>
+          </div>
+
+          @if (showSalarial()) {
+            <div class="section-content">
+              <div class="form-section">
+                <h3><i class="pi pi-dollar"></i> Remuneración</h3>
+                <div class="form-grid">
+                  <div class="form-field-wrapper">
+                    <div class="form-field">
+                      <label for="salario">Salario (Lempiras) *</label>
+                      <p-inputNumber 
+                        id="salario"
+                        formControlName="salario" 
+                        mode="currency"
+                        currency="HNL"
+                        locale="es-HN"
+                        [min]="0"
+                        [class.p-invalid]="contractForm.get('salario')?.invalid && contractForm.get('salario')?.touched">
+                      </p-inputNumber>
+                      @if (contractForm.get('salario')?.invalid && contractForm.get('salario')?.touched) {
+                        <small class="p-error">El salario es requerido y debe ser mayor a 0</small>
+                      }
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          }
+        </div>
+
+        <!-- 4. CONDICIONES ADICIONALES -->
+        <div class="collapsible-section section-condiciones">
+          <div class="section-header-collapsible" (click)="showCondiciones.set(!showCondiciones())">
+            <div class="tab-header">
+              <i class="pi pi-file"></i>
+              <span>4. Condiciones Adicionales</span>
+            </div>
+            <i [class]="showCondiciones() ? 'pi pi-chevron-up' : 'pi pi-chevron-down'"></i>
+          </div>
+
+          @if (showCondiciones()) {
+            <div class="section-content">
+              <div class="form-section">
+                <h3><i class="pi pi-file-edit"></i> Términos y Condiciones</h3>
+                <div class="form-grid">
+                  <div class="form-field-wrapper full-width">
+                    <div class="form-field full-width">
+                      <label for="condiciones">Condiciones</label>
+                      <textarea 
+                        pInputTextarea
+                        id="condiciones"
+                        formControlName="condiciones"
+                        rows="5"
+                        placeholder="Condiciones adicionales del contrato...">
+                      </textarea>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          }
+        </div>
+
+        <!-- Actions -->
+        <div class="form-actions">
+          <button 
+            pButton 
+            type="button" 
+            label="Cancelar" 
+            icon="pi pi-times"
+            class="p-button-secondary"
+            (click)="cancel()"
+            [disabled]="loading()">
+          </button>
+          <button 
+            pButton 
+            type="submit" 
+            [label]="isEdit() ? 'Actualizar Contrato' : 'Crear Contrato'" 
+            [icon]="isEdit() ? 'pi pi-save' : 'pi pi-check'"
+            [loading]="loading()">
+          </button>
+        </div>
+      </form>
+    </p-card>
+  </div>
+</div>
