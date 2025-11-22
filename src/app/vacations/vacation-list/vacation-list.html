@@ -134,7 +134,8 @@
 
   <!-- Dialog de Detalles -->
   <p-dialog 
-    [visible]="showDetailsDialog()"`n    (visibleChange)="showDetailsDialog.set($event)" 
+    [visible]="showDetailsDialog()" 
+    (visibleChange)="showDetailsDialog.set($event)"
     [modal]="true" 
     [style]="{ width: '600px' }"
     header="Detalles de Solicitud">
