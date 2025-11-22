@@ -129,3 +129,82 @@ class EmpleadoUpdate(BaseModel):
     salario: Optional[float] = None
     activo: Optional[bool] = None
 
+# ============================================================================
+#                           MODELOS DE CONTRATOS
+# ============================================================================
+
+# Modelo para crear un contrato
+class ContratoCreate(BaseModel):
+    id_empleado: int = Field(..., description="ID del empleado")
+    tipo_contrato: str = Field(..., description="Tipo de contrato: temporal, permanente, honorarios")
+    fecha_inicio: str = Field(..., description="Fecha de inicio del contrato (YYYY-MM-DD)")
+    fecha_fin: Optional[str] = Field(None, description="Fecha de fin del contrato (YYYY-MM-DD). Opcional para contratos permanentes")
+    salario: float = Field(..., description="Salario del contrato")
+    condiciones: Optional[str] = Field(None, description="Condiciones adicionales del contrato")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "id_empleado": 1,
+                "tipo_contrato": "permanente",
+                "fecha_inicio": "2025-01-15",
+                "fecha_fin": None,
+                "salario": 50000.00,
+                "condiciones": "Contrato a tiempo completo con beneficios completos"
+            }
+        }
+
+# Modelo para actualizar un contrato
+class ContratoUpdate(BaseModel):
+    tipo_contrato: Optional[str] = None
+    fecha_inicio: Optional[str] = None
+    fecha_fin: Optional[str] = None
+    salario: Optional[float] = None
+    condiciones: Optional[str] = None
+
+# ============================================================================
+#                           MODELOS DE ASISTENCIAS
+# ============================================================================
+
+# Modelo para crear/registrar una asistencia
+class AsistenciaCreate(BaseModel):
+    id_empleado: int = Field(..., description="ID del empleado")
+    fecha: str = Field(..., description="Fecha de la asistencia (YYYY-MM-DD)")
+    hora_entrada: Optional[str] = Field(None, description="Hora de entrada (HH:MM:SS)")
+    hora_salida: Optional[str] = Field(None, description="Hora de salida (HH:MM:SS)")
+    observaciones: Optional[str] = Field(None, description="Justificaciones u observaciones")
+    metodo_registro: Optional[str] = Field("manual", description="Método de registro: manual o biometrico")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "id_empleado": 1,
+                "fecha": "2025-01-15",
+                "hora_entrada": "08:00:00",
+                "hora_salida": "17:00:00",
+                "observaciones": "Llegada puntual",
+                "metodo_registro": "manual"
+            }
+        }
+
+# Modelo para actualizar una asistencia
+class AsistenciaUpdate(BaseModel):
+    hora_entrada: Optional[str] = None
+    hora_salida: Optional[str] = None
+    observaciones: Optional[str] = None
+
+# Modelo para reporte de asistencias por rango de fechas
+class AsistenciaReporteRequest(BaseModel):
+    id_empleado: Optional[int] = Field(None, description="ID del empleado (opcional, si no se proporciona se obtienen todos)")
+    fecha_inicio: str = Field(..., description="Fecha de inicio del rango (YYYY-MM-DD)")
+    fecha_fin: str = Field(..., description="Fecha de fin del rango (YYYY-MM-DD)")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "id_empleado": 1,
+                "fecha_inicio": "2025-01-01",
+                "fecha_fin": "2025-01-31"
+            }
+        }
+

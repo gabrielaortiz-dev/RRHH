@@ -1,53 +1,83 @@
 @echo off
-title Iniciar Servidor RRHH
+chcp 65001 >nul
+title Sistema RRHH - Iniciar Todo
 color 0A
+cls
 echo.
 echo ========================================================================
-echo   INICIANDO SERVIDOR DE RECURSOS HUMANOS
+echo                    INICIANDO SISTEMA RRHH
 echo ========================================================================
 echo.
-echo Por favor espera, esto puede tomar unos segundos...
+echo Por favor espera, esto puede tomar unos minutos...
 echo.
 
-REM Cambiar al directorio del script
 cd /d "%~dp0"
 
-REM Verificar que estamos en el directorio correcto
-if not exist "angular.json" (
-    echo [ERROR] No se encuentra angular.json
-    echo.
-    echo Por favor, ejecuta este archivo desde la carpeta:
-    echo C:\Users\GABRIELAORTIZ\Desktop\RRHH\RRHH
-    echo.
-    pause
-    exit /b 1
+REM Verificar e iniciar Backend
+echo [1/2] Verificando Backend...
+python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health', timeout=2)" >nul 2>&1
+if errorlevel 1 (
+    echo        Iniciando Backend en nueva ventana...
+    start "Backend RRHH" cmd /k "cd /d %~dp0BACKEND && iniciar-servidor.bat"
+    echo        Esperando a que el backend este listo...
+    timeout /t 5 /nobreak >nul
+    set /a contador=0
+    :esperar
+    python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health', timeout=2)" >nul 2>&1
+    if errorlevel 1 (
+        set /a contador+=1
+        if %contador% lss 30 (
+            timeout /t 2 /nobreak >nul
+            goto esperar
+        )
+    )
+    echo        [OK] Backend iniciado
+) else (
+    echo        [OK] Backend ya esta corriendo
+)
+echo.
+
+REM Determinar directorio Angular
+set "DIR_ANGULAR=%~dp0"
+if exist "RRHH\angular.json" (
+    set "DIR_ANGULAR=%~dp0RRHH"
 )
 
-if not exist "package.json" (
-    echo [ERROR] No se encuentra package.json
-    echo.
-    echo Por favor, ejecuta este archivo desde la carpeta:
-    echo C:\Users\GABRIELAORTIZ\Desktop\RRHH\RRHH
-    echo.
-    pause
-    exit /b 1
+REM Verificar dependencias
+echo [2/2] Verificando Frontend...
+cd /d "%DIR_ANGULAR%"
+if not exist "node_modules" (
+    echo        Instalando dependencias (esto puede tardar)...
+    call npm install --legacy-peer-deps
+    if errorlevel 1 (
+        echo [ERROR] No se pudieron instalar las dependencias
+        pause
+        exit /b 1
+    )
 )
 
-echo [OK] Directorio correcto detectado
-echo [OK] Archivos encontrados: angular.json, package.json
-echo.
-echo Iniciando servidor de desarrollo...
+REM Iniciar Frontend
+echo        Iniciando servidor Angular...
 echo.
 echo ========================================================================
-echo   El navegador se abrira automaticamente en unos segundos
-echo   URL: http://localhost:4200
-echo.
-echo   Para detener el servidor, presiona Ctrl+C
+echo                    SISTEMA INICIADO
 echo ========================================================================
 echo.
+echo   Frontend: http://localhost:4200
+echo   Backend:  http://localhost:8000
+echo.
+echo   Credenciales:
+echo   Email:    admin@rrhh.com
+echo   Password: admin123
+echo.
+echo   El navegador se abrira en unos segundos...
+echo.
+echo   Para detener: Presiona Ctrl+C
+echo.
+echo ========================================================================
+echo.
+timeout /t 3 /nobreak >nul
 
-REM Iniciar el servidor
-call npm start
+call ng serve --host 127.0.0.1 --port 4200 --open
 
 pause
-

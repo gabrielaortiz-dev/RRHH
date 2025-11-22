@@ -1,0 +1,59 @@
+================================================================================
+                    CREDENCIALES PARA INICIAR SESIÓN
+================================================================================
+
+El sistema crea automáticamente usuarios de ejemplo cuando se inicia por
+primera vez. Puedes usar cualquiera de estas credenciales:
+
+USUARIO ADMINISTRADOR:
+  Email:    admin@rrhh.com
+  Password: admin123
+  Rol:      administrador
+
+USUARIO EMPLEADO:
+  Email:    juan.perez@rrhh.com
+  Password: pass123
+  Rol:      empleado
+
+USUARIO SUPERVISOR:
+  Email:    maria.garcia@rrhh.com
+  Password: pass123
+  Rol:      supervisor
+
+================================================================================
+                    SI NO PUEDES INICIAR SESIÓN
+================================================================================
+
+Si las credenciales no funcionan, ejecuta el siguiente archivo para crear
+o reactivar los usuarios:
+
+  1. Cierra el backend si está corriendo
+  2. Ejecuta: CREAR_USUARIOS.bat
+  3. Espera a que termine el proceso
+  4. Vuelve a iniciar el sistema con INICIAR_PLATAFORMA.bat
+  5. Intenta iniciar sesión nuevamente
+
+================================================================================
+                          CÓMO INICIAR EL SISTEMA
+================================================================================
+
+1. Ejecuta el archivo: INICIAR_PLATAFORMA.bat
+
+2. El script automáticamente:
+   - Iniciará el backend (puerto 8000)
+   - Instalará dependencias si es necesario
+   - Iniciará el frontend (puerto 4200)
+   - Abrirá el navegador automáticamente
+
+3. Usa cualquiera de las credenciales de arriba para iniciar sesión
+
+================================================================================
+                          URLS DEL SISTEMA
+================================================================================
+
+Frontend:  http://localhost:4200
+Backend:   http://localhost:8000
+API Docs:  http://localhost:8000/docs
+
+================================================================================
+

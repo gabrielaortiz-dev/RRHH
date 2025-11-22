@@ -1,0 +1,120 @@
+================================================================================
+                    SOLUCIÓN DE PROBLEMAS - LOGIN
+================================================================================
+
+Si no puedes iniciar sesión, sigue estos pasos en orden:
+
+================================================================================
+PASO 1: VERIFICAR QUE EL BACKEND ESTÉ CORRIENDO
+================================================================================
+
+1. Abre una nueva ventana de PowerShell o CMD
+2. Ejecuta este comando para verificar:
+   python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health', timeout=2)"
+
+Si obtienes un error, el backend NO está corriendo. Entonces:
+   - Ejecuta INICIAR_PLATAFORMA.bat
+   - O ejecuta BACKEND\iniciar-servidor.bat manualmente
+   - Espera a que veas el mensaje "Application startup complete"
+
+================================================================================
+PASO 2: VERIFICAR QUE LOS USUARIOS EXISTAN
+================================================================================
+
+1. Ejecuta: CREAR_USUARIOS.bat
+2. Verifica que aparezcan los usuarios creados
+3. Si ya existen, el script te lo indicará
+
+================================================================================
+PASO 3: VERIFICAR LAS CREDENCIALES
+================================================================================
+
+Asegúrate de usar EXACTAMENTE estas credenciales (sin espacios extra):
+
+USUARIO ADMINISTRADOR:
+  Email:    admin@rrhh.com
+  Password: admin123
+
+USUARIO EMPLEADO:
+  Email:    juan.perez@rrhh.com
+  Password: pass123
+
+USUARIO SUPERVISOR:
+  Email:    maria.garcia@rrhh.com
+  Password: pass123
+
+IMPORTANTE:
+- No copies espacios en blanco antes o después
+- El email debe ser exacto (minúsculas)
+- La contraseña es sensible a mayúsculas/minúsculas
+
+================================================================================
+PASO 4: VERIFICAR LA CONSOLA DEL NAVEGADOR
+================================================================================
+
+1. Abre el navegador (Chrome, Edge, Firefox)
+2. Presiona F12 para abrir las herramientas de desarrollador
+3. Ve a la pestaña "Console" (Consola)
+4. Intenta iniciar sesión
+5. Revisa si hay errores en rojo
+
+Errores comunes:
+- "Failed to fetch" o "Network error" = Backend no está corriendo
+- "401 Unauthorized" = Credenciales incorrectas
+- "CORS error" = Problema de configuración (debería estar resuelto)
+
+================================================================================
+PASO 5: PROBAR EL ENDPOINT DIRECTAMENTE
+================================================================================
+
+Abre tu navegador y ve a:
+   http://localhost:8000/docs
+
+Esto te mostrará la documentación de la API. Busca el endpoint:
+   POST /api/usuarios/login
+
+Haz clic en "Try it out" y prueba con:
+   {
+     "email": "admin@rrhh.com",
+     "password": "admin123"
+   }
+
+Si funciona aquí pero no en el frontend, el problema está en el frontend.
+Si no funciona aquí, el problema está en el backend o la base de datos.
+
+================================================================================
+PASO 6: REINICIAR TODO
+================================================================================
+
+1. Cierra TODAS las ventanas del backend (Ctrl+C en cada una)
+2. Cierra el frontend (Ctrl+C)
+3. Espera 5 segundos
+4. Ejecuta INICIAR_PLATAFORMA.bat nuevamente
+5. Espera a que ambos servicios estén corriendo
+6. Intenta iniciar sesión
+
+================================================================================
+PASO 7: VERIFICAR LA BASE DE DATOS
+================================================================================
+
+Si nada funciona, puedes verificar directamente la base de datos:
+
+1. Ve a la carpeta BACKEND
+2. Abre el archivo rrhh.db con un visor de SQLite (opcional)
+3. O ejecuta este comando Python:
+
+   python -c "from database import get_db; db = get_db(); usuarios = db.fetch_all('SELECT email, password, rol, activo FROM usuarios'); print('Usuarios:', usuarios)"
+
+Esto te mostrará todos los usuarios y sus contraseñas.
+
+================================================================================
+CONTACTO Y AYUDA
+================================================================================
+
+Si después de seguir todos estos pasos aún no puedes iniciar sesión:
+1. Revisa los mensajes de error en la consola del navegador (F12)
+2. Revisa los mensajes en la ventana del backend
+3. Verifica que Python y Node.js estén instalados correctamente
+
+================================================================================
+
