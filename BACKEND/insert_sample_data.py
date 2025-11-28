@@ -3,6 +3,14 @@ Script para insertar datos de ejemplo en la base de datos
 """
 from database import get_db
 from datetime import datetime, date
+import bcrypt
+
+def hash_password(password: str) -> str:
+    """Hashea una contraseña usando bcrypt"""
+    # Asegurar que la contraseña no exceda 72 bytes
+    password_bytes = password.encode('utf-8')[:72]
+    salt = bcrypt.gensalt()
+    return bcrypt.hashpw(password_bytes, salt).decode('utf-8')
 
 def insert_sample_data():
     """Insertar datos de ejemplo en la base de datos"""
@@ -22,9 +30,11 @@ def insert_sample_data():
         ]
         
         for usuario in usuarios:
+            nombre, email, password, rol = usuario
+            password_hash = hash_password(password)
             db.execute_query(
                 "INSERT INTO usuarios (nombre, email, password, rol) VALUES (?, ?, ?, ?)",
-                usuario
+                (nombre, email, password_hash, rol)
             )
         print(f"[OK] {len(usuarios)} usuarios insertados")
         

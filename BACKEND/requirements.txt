@@ -3,4 +3,6 @@ uvicorn[standard]
 python-dotenv
 python-multipart
 email-validator
+bcrypt
+passlib[bcrypt]
 
