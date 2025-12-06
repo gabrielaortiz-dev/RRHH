@@ -298,4 +298,27 @@ export class EmployeeService {
   getInactiveEmployees(): number {
     return this.employees().filter(emp => emp.estado !== 'Activo').length;
   }
+
+  /**
+   * Obtiene el salario promedio de todos los empleados activos
+   */
+  getAverageSalary(): number {
+    const activeEmployees = this.employees().filter(emp => emp.estado === 'Activo' && emp.salario);
+    if (activeEmployees.length === 0) return 0;
+
+    const totalSalary = activeEmployees.reduce((sum, emp) => sum + (emp.salario || 0), 0);
+    return totalSalary / activeEmployees.length;
+  }
+
+  /**
+   * Obtiene empleados agrupados por departamento
+   */
+  getEmployeesByDepartment(): { [key: string]: number } {
+    const departmentCounts: { [key: string]: number } = {};
+    this.employees().forEach(emp => {
+      const dept = emp.departamento || 'Sin Departamento';
+      departmentCounts[dept] = (departmentCounts[dept] || 0) + 1;
+    });
+    return departmentCounts;
+  }
 }
