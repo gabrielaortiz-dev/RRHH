@@ -1,0 +1,89 @@
+╔══════════════════════════════════════════════════════════════════════╗
+║                                                                      ║
+║              ⚠️  CORRECCIÓN DE ROLES - EJECUTA ESTO                 ║
+║                                                                      ║
+╚══════════════════════════════════════════════════════════════════════╝
+
+
+❌ PROBLEMA DETECTADO:
+═══════════════════════
+
+Tu sistema muestra roles antiguos:
+  • Administrador
+  • RRHH
+  • Supervisor
+  • Empleado
+  • Invitado
+
+Pero deberías ver los nuevos roles:
+  • Super Admin
+  • Gerente / Alta Gerencia
+  • Supervisor / Jefe de Área
+  • Operativo
+  • Consulta / Solo Visualización
+
+
+✅ SOLUCIÓN (1 COMANDO):
+═════════════════════════
+
+Abre una terminal en la carpeta BACKEND y ejecuta:
+
+    python verificar_y_corregir_roles.py
+
+Este comando:
+  ✓ Elimina los roles antiguos
+  ✓ Crea los 5 roles correctos
+  ✓ Actualiza todos los puestos
+  ✓ Reasigna roles a usuarios
+  
+Tiempo: 1 minuto
+
+
+📋 DESPUÉS DE EJECUTAR:
+════════════════════════
+
+1. Espera a que termine (verás un reporte)
+2. Ve a tu navegador
+3. Presiona F5 para recargar la página
+4. Ahora deberías ver los nuevos roles correctos
+
+
+⚠️ SI AÚN NO FUNCIONA:
+════════════════════════
+
+Ejecuta el script completo desde cero:
+
+    python instalar_sistema_completo.py
+
+
+🔍 PARA VERIFICAR:
+═══════════════════
+
+Después de ejecutar, deberías ver en el navegador:
+
+┌─────────────────────────────────────────────────┐
+│ Super Admin              | 0 permisos           │
+│ Control total del sistema                       │
+├─────────────────────────────────────────────────┤
+│ Gerente / Alta Gerencia  | 0 permisos           │
+│ Decisiones estratégicas                         │
+├─────────────────────────────────────────────────┤
+│ Supervisor / Jefe Área   | 0 permisos           │
+│ Gestión departamental                           │
+├─────────────────────────────────────────────────┤
+│ Operativo                | 0 permisos           │
+│ Trabajo diario                                  │
+├─────────────────────────────────────────────────┤
+│ Consulta / Solo Visual   | 0 permisos           │
+│ Solo lectura                                    │
+└─────────────────────────────────────────────────┘
+
+
+═══════════════════════════════════════════════════════════════════
+
+              ⚡ EJECUTA AHORA EL COMANDO ⚡
+
+    python verificar_y_corregir_roles.py
+
+═══════════════════════════════════════════════════════════════════
+

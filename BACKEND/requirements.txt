@@ -5,4 +5,10 @@ python-multipart
 email-validator
 bcrypt
 passlib[bcrypt]
+python-jose[cryptography]
+python-dateutil
+requests
+reportlab
+openpyxl
+pillow
 

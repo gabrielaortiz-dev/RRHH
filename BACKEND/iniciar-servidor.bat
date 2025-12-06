@@ -39,8 +39,21 @@ echo.
 echo Presiona Ctrl+C para detener el servidor
 echo.
 
-REM Iniciar el servidor
-python main.py
+REM Iniciar el servidor con el script mejorado
+python iniciar_servidor_mejorado.py
+
+if errorlevel 1 (
+    echo.
+    echo [ERROR] El servidor no pudo iniciarse correctamente
+    echo.
+    echo Verifica:
+    echo 1. Que el puerto 8000 no esté en uso
+    echo 2. Que todas las dependencias estén instaladas
+    echo 3. Que no haya errores en main.py
+    echo.
+    pause
+    exit /b 1
+)
 
 pause
 
