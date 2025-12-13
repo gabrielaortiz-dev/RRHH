@@ -485,4 +485,212 @@ class ExportHelper:
         title = "Reporte de Vacaciones y Permisos"
         headers = ['empleado', 'tipo', 'fecha_inicio', 'fecha_fin', 'dias', 'estado', 'fecha_solicitud']
         return ExportHelper.export_to_excel(vacations, title, "reporte_vacaciones.xlsx", headers)
+    
+    @staticmethod
+    def export_contract_pdf(contrato: Dict[str, Any]) -> BytesIO:
+        """
+        Genera un PDF profesional del contrato laboral
+        
+        Args:
+            contrato: Diccionario con los datos del contrato
+            
+        Returns:
+            BytesIO con el contenido del PDF
+        """
+        buffer = BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=letter, 
+                                rightMargin=72, leftMargin=72,
+                                topMargin=72, bottomMargin=72)
+        
+        # Estilos
+        styles = getSampleStyleSheet()
+        title_style = ParagraphStyle(
+            'CustomTitle',
+            parent=styles['Heading1'],
+            fontSize=18,
+            textColor=colors.HexColor('#1a237e'),
+            spaceAfter=30,
+            alignment=TA_CENTER
+        )
+        
+        heading_style = ParagraphStyle(
+            'CustomHeading',
+            parent=styles['Heading2'],
+            fontSize=14,
+            textColor=colors.HexColor('#283593'),
+            spaceAfter=12,
+            spaceBefore=12
+        )
+        
+        normal_style = styles['Normal']
+        normal_style.fontSize = 10
+        normal_style.leading = 14
+        
+        # Contenido del PDF
+        story = []
+        
+        # Encabezado
+        story.append(Paragraph("CONTRATO DE TRABAJO", title_style))
+        story.append(Spacer(1, 0.2*inch))
+        
+        # Información de la empresa
+        story.append(Paragraph("<b>DATOS DEL EMPLEADOR</b>", heading_style))
+        empresa_info = [
+            f"<b>Empresa:</b> {contrato.get('empresa_nombre', 'N/A')}",
+            f"<b>Representante Legal:</b> {contrato.get('empresa_representante_legal', 'N/A')}",
+            f"<b>RTN:</b> {contrato.get('empresa_rtn', 'N/A')}",
+            f"<b>Dirección:</b> {contrato.get('empresa_direccion', 'N/A')}",
+            f"<b>Teléfono:</b> {contrato.get('empresa_telefono', 'N/A')}",
+            f"<b>Email:</b> {contrato.get('empresa_email', 'N/A')}"
+        ]
+        for info in empresa_info:
+            story.append(Paragraph(info, normal_style))
+        
+        story.append(Spacer(1, 0.2*inch))
+        
+        # Información del trabajador
+        story.append(Paragraph("<b>DATOS DEL TRABAJADOR</b>", heading_style))
+        trabajador_info = [
+            f"<b>Nombre Completo:</b> {contrato.get('trabajador_nombre_completo', contrato.get('nombre_empleado', 'N/A'))}",
+            f"<b>DNI:</b> {contrato.get('trabajador_dni', 'N/A')}",
+            f"<b>Nacionalidad:</b> {contrato.get('trabajador_nacionalidad', 'Hondureña')}",
+            f"<b>Estado Civil:</b> {contrato.get('trabajador_estado_civil', 'N/A')}",
+            f"<b>Dirección:</b> {contrato.get('trabajador_direccion', 'N/A')}",
+            f"<b>Teléfono:</b> {contrato.get('trabajador_telefono', 'N/A')}",
+            f"<b>Email:</b> {contrato.get('trabajador_email', 'N/A')}"
+        ]
+        for info in trabajador_info:
+            story.append(Paragraph(info, normal_style))
+        
+        story.append(Spacer(1, 0.2*inch))
+        
+        # Información del puesto
+        story.append(Paragraph("<b>INFORMACIÓN DEL PUESTO</b>", heading_style))
+        puesto_info = [
+            f"<b>Puesto:</b> {contrato.get('nombre_puesto', 'N/A')}",
+            f"<b>Descripción:</b> {contrato.get('descripcion_puesto', 'N/A')}",
+            f"<b>Jefe Inmediato:</b> {contrato.get('jefe_inmediato', 'N/A')}"
+        ]
+        for info in puesto_info:
+            story.append(Paragraph(info, normal_style))
+        
+        story.append(Spacer(1, 0.2*inch))
+        
+        # Condiciones de trabajo
+        story.append(Paragraph("<b>CONDICIONES DE TRABAJO</b>", heading_style))
+        tipo_contrato = contrato.get('tipo_contrato', 'N/A')
+        tipo_display = {
+            'tiempo_indefinido': 'Tiempo Indefinido',
+            'tiempo_determinado': 'Tiempo Determinado',
+            'obra_proyecto': 'Por Obra o Proyecto',
+            'por_horas': 'Por Horas'
+        }.get(tipo_contrato, tipo_contrato)
+        
+        condiciones_info = [
+            f"<b>Tipo de Contrato:</b> {tipo_display}",
+            f"<b>Jornada Laboral:</b> {contrato.get('jornada_laboral_dias', 'N/A')}",
+            f"<b>Horario:</b> {contrato.get('horario_entrada', 'N/A')} - {contrato.get('horario_salida', 'N/A')}",
+            f"<b>Tiempo de Descanso:</b> {contrato.get('tiempo_descanso', 'N/A')}",
+            f"<b>Lugar de Trabajo:</b> {contrato.get('lugar_trabajo', 'N/A')}"
+        ]
+        for info in condiciones_info:
+            story.append(Paragraph(info, normal_style))
+        
+        story.append(Spacer(1, 0.2*inch))
+        
+        # Remuneración
+        story.append(Paragraph("<b>REMUNERACIÓN</b>", heading_style))
+        salario = contrato.get('salario_base') or contrato.get('salario', 0)
+        remuneracion_info = [
+            f"<b>Salario Base:</b> L. {salario:,.2f}",
+            f"<b>Forma de Pago:</b> {contrato.get('forma_pago', 'N/A')}",
+            f"<b>Método de Pago:</b> {contrato.get('metodo_pago', 'N/A')}"
+        ]
+        if contrato.get('bonificaciones'):
+            remuneracion_info.append(f"<b>Bonificaciones:</b> {contrato.get('bonificaciones')}")
+        if contrato.get('comisiones'):
+            remuneracion_info.append(f"<b>Comisiones:</b> {contrato.get('comisiones')}")
+        for info in remuneracion_info:
+            story.append(Paragraph(info, normal_style))
+        
+        story.append(Spacer(1, 0.2*inch))
+        
+        # Duración
+        story.append(Paragraph("<b>DURACIÓN DEL CONTRATO</b>", heading_style))
+        fecha_inicio = contrato.get('fecha_inicio', 'N/A')
+        fecha_fin = contrato.get('fecha_fin', 'Indefinido')
+        duracion_info = [
+            f"<b>Fecha de Inicio:</b> {fecha_inicio}",
+            f"<b>Fecha de Fin:</b> {fecha_fin}"
+        ]
+        if contrato.get('periodo_prueba_dias'):
+            duracion_info.append(f"<b>Periodo de Prueba:</b> {contrato.get('periodo_prueba_dias')} días")
+        for info in duracion_info:
+            story.append(Paragraph(info, normal_style))
+        
+        story.append(Spacer(1, 0.2*inch))
+        
+        # Beneficios
+        story.append(Paragraph("<b>BENEFICIOS LEGALES</b>", heading_style))
+        beneficios_info = []
+        if contrato.get('vacaciones_anuales'):
+            beneficios_info.append(f"<b>Vacaciones Anuales:</b> {contrato.get('vacaciones_anuales')} días")
+        if contrato.get('aguinaldo'):
+            beneficios_info.append("<b>Aguinaldo:</b> Sí")
+        if contrato.get('prestaciones_sociales'):
+            beneficios_info.append(f"<b>Prestaciones Sociales:</b> {contrato.get('prestaciones_sociales')}")
+        if not beneficios_info:
+            beneficios_info.append("Según lo establecido en el Código de Trabajo de Honduras")
+        for info in beneficios_info:
+            story.append(Paragraph(info, normal_style))
+        
+        story.append(Spacer(1, 0.2*inch))
+        
+        # Cláusulas básicas
+        story.append(Paragraph("<b>CLÁUSULAS GENERALES</b>", heading_style))
+        clausulas = [
+            "1. El trabajador se compromete a cumplir con todas las obligaciones establecidas en este contrato.",
+            "2. El empleador se compromete a proporcionar un ambiente de trabajo seguro y respetuoso.",
+            "3. Cualquier modificación a este contrato debe ser acordada por ambas partes por escrito.",
+            "4. Este contrato se rige por las leyes laborales de la República de Honduras."
+        ]
+        if contrato.get('condiciones'):
+            clausulas.append(f"5. {contrato.get('condiciones')}")
+        for clausula in clausulas:
+            story.append(Paragraph(clausula, normal_style))
+        
+        story.append(Spacer(1, 0.3*inch))
+        
+        # Firma
+        story.append(Paragraph("<b>FIRMAS</b>", heading_style))
+        story.append(Spacer(1, 0.3*inch))
+        
+        # Tabla de firmas
+        firma_data = [
+            ['Trabajador', 'Empleador'],
+            ['___________________', '___________________'],
+            ['', ''],
+            ['', '']
+        ]
+        firma_table = Table(firma_data, colWidths=[3*inch, 3*inch])
+        firma_table.setStyle(TableStyle([
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 12),
+            ('TOPPADDING', (0, 0), (-1, -1), 12),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
+        ]))
+        story.append(firma_table)
+        
+        # Pie de página
+        story.append(Spacer(1, 0.2*inch))
+        fecha_gen = datetime.now().strftime('%d/%m/%Y %H:%M')
+        story.append(Paragraph(f"<i>Documento generado el {fecha_gen}</i>", 
+                              ParagraphStyle('Footer', parent=normal_style, fontSize=8, 
+                                           textColor=colors.grey, alignment=TA_CENTER)))
+        
+        # Construir PDF
+        doc.build(story)
+        buffer.seek(0)
+        return buffer
 

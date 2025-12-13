@@ -1,7 +1,7 @@
 """
 Modelos Pydantic para validación de datos
 """
-from pydantic import BaseModel, EmailStr, Field, validator, model_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 from typing import Optional
 from datetime import datetime
 
@@ -135,10 +135,10 @@ class EmpleadoUpdate(BaseModel):
 
 # Modelo para crear un contrato completo
 class ContratoCreate(BaseModel):
-    id_empleado: int = Field(..., description="ID del empleado")
+    id_empleado: int = Field(..., gt=0, description="ID del empleado")
     
     # Datos del Empleador
-    empresa_nombre: Optional[str] = Field(None, description="Nombre legal de la empresa")
+    empresa_nombre: str = Field(..., min_length=2, max_length=200, description="Nombre legal de la empresa (obligatorio)")
     empresa_representante_legal: Optional[str] = Field(None, description="Representante legal de la empresa")
     empresa_rtn: Optional[str] = Field(None, description="Número de identificación tributaria (RTN)")
     empresa_direccion: Optional[str] = Field(None, description="Dirección de la empresa")
@@ -147,7 +147,7 @@ class ContratoCreate(BaseModel):
     
     # Datos del Trabajador
     trabajador_nombre_completo: Optional[str] = Field(None, description="Nombre completo del trabajador")
-    trabajador_dni: Optional[str] = Field(None, description="Documento de identidad (DNI)")
+    trabajador_dni: str = Field(..., min_length=5, max_length=50, description="Documento de identidad (DNI) - obligatorio")
     trabajador_nacionalidad: Optional[str] = Field(None, description="Nacionalidad del trabajador")
     trabajador_estado_civil: Optional[str] = Field(None, description="Estado civil")
     trabajador_direccion: Optional[str] = Field(None, description="Dirección del trabajador")
@@ -161,7 +161,7 @@ class ContratoCreate(BaseModel):
     jefe_inmediato: Optional[str] = Field(None, description="Nombre del jefe inmediato")
     
     # Condiciones de Trabajo
-    tipo_contrato: str = Field(..., description="Tipo: tiempo_indefinido, tiempo_determinado, obra_proyecto, por_horas")
+    tipo_contrato: str = Field(..., description="Tipo: tiempo_indefinido, tiempo_determinado, obra_proyecto, por_horas (obligatorio)")
     jornada_laboral_dias: Optional[str] = Field(None, description="Días a trabajar (ej: Lunes a Viernes)")
     horario_entrada: Optional[str] = Field(None, description="Horario de entrada (HH:MM)")
     horario_salida: Optional[str] = Field(None, description="Horario de salida (HH:MM)")
@@ -169,7 +169,7 @@ class ContratoCreate(BaseModel):
     lugar_trabajo: Optional[str] = Field(None, description="Lugar de trabajo")
     
     # Remuneración
-    salario_base: float = Field(..., description="Salario base")
+    salario_base: float = Field(..., gt=0, description="Salario base (debe ser positivo)")
     forma_pago: Optional[str] = Field(None, description="Forma de pago: semanal, quincenal, mensual")
     metodo_pago: Optional[str] = Field(None, description="Método: transferencia, efectivo, cheque")
     bonificaciones: Optional[str] = Field(None, description="Bonificaciones adicionales")
@@ -180,7 +180,41 @@ class ContratoCreate(BaseModel):
     # Duración
     fecha_inicio: str = Field(..., description="Fecha de inicio (YYYY-MM-DD)")
     fecha_fin: Optional[str] = Field(None, description="Fecha de fin (YYYY-MM-DD). Opcional para contratos permanentes")
-    periodo_prueba_dias: Optional[int] = Field(None, description="Periodo de prueba en días")
+    periodo_prueba_dias: Optional[int] = Field(None, ge=0, description="Periodo de prueba en días (debe ser >= 0)")
+    
+    @field_validator('tipo_contrato')
+    @classmethod
+    def validate_tipo_contrato(cls, v):
+        tipos_validos = ['tiempo_indefinido', 'tiempo_determinado', 'obra_proyecto', 'por_horas']
+        if v not in tipos_validos:
+            raise ValueError(f'tipo_contrato debe ser uno de: {", ".join(tipos_validos)}')
+        return v
+    
+    @field_validator('fecha_inicio', 'fecha_fin')
+    @classmethod
+    def validate_fecha_format(cls, v):
+        if v is None:
+            return v
+        try:
+            datetime.strptime(v, '%Y-%m-%d')
+        except ValueError:
+            raise ValueError('La fecha debe estar en formato YYYY-MM-DD')
+        return v
+    
+    @model_validator(mode='after')
+    def validate_fechas(self):
+        """Validar que fecha_inicio < fecha_fin si ambas están presentes"""
+        if self.fecha_fin:
+            try:
+                fecha_inicio = datetime.strptime(self.fecha_inicio, '%Y-%m-%d').date()
+                fecha_fin = datetime.strptime(self.fecha_fin, '%Y-%m-%d').date()
+                if fecha_inicio >= fecha_fin:
+                    raise ValueError('La fecha de inicio debe ser anterior a la fecha de fin')
+            except ValueError as e:
+                if 'debe ser anterior' in str(e):
+                    raise
+                # Si es error de formato, ya fue validado arriba
+        return self
     
     # Derechos y Obligaciones
     derechos_empleado: Optional[str] = Field(None, description="Derechos del empleado")
@@ -229,6 +263,50 @@ class ContratoCreate(BaseModel):
                 "tipo_contrato": "tiempo_indefinido",
                 "salario_base": 50000.00,
                 "fecha_inicio": "2025-01-15"
+            }
+        }
+
+# Modelo simplificado para crear contrato desde empleado
+class ContratoCrearRapido(BaseModel):
+    """Modelo para crear un contrato automáticamente desde un empleado"""
+    id_empleado: int = Field(..., gt=0, description="ID del empleado")
+    tipo_contrato: str = Field(default="tiempo_indefinido", description="Tipo de contrato")
+    fecha_fin: Optional[str] = Field(None, description="Fecha de fin (opcional para contratos indefinidos)")
+    periodo_prueba_dias: Optional[int] = Field(None, ge=0, description="Periodo de prueba en días")
+    
+    # Campos opcionales para personalizar
+    empresa_nombre: Optional[str] = Field(None, description="Nombre de la empresa (si no se proporciona, se usa valor por defecto)")
+    empresa_representante_legal: Optional[str] = None
+    empresa_rtn: Optional[str] = None
+    descripcion_puesto: Optional[str] = None
+    jefe_inmediato: Optional[str] = None
+    condiciones: Optional[str] = None
+    
+    @field_validator('tipo_contrato')
+    @classmethod
+    def validate_tipo_contrato(cls, v):
+        tipos_validos = ['tiempo_indefinido', 'tiempo_determinado', 'obra_proyecto', 'por_horas']
+        if v not in tipos_validos:
+            raise ValueError(f'tipo_contrato debe ser uno de: {", ".join(tipos_validos)}')
+        return v
+    
+    @field_validator('fecha_fin')
+    @classmethod
+    def validate_fecha_fin(cls, v):
+        if v is None:
+            return v
+        try:
+            datetime.strptime(v, '%Y-%m-%d')
+        except ValueError:
+            raise ValueError('La fecha debe estar en formato YYYY-MM-DD')
+        return v
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "id_empleado": 1,
+                "tipo_contrato": "tiempo_indefinido",
+                "periodo_prueba_dias": 90
             }
         }
 
@@ -372,28 +450,123 @@ class AsistenciaReporteRequest(BaseModel):
 
 # Modelo para bonificación en nómina
 class BonificacionItem(BaseModel):
-    concepto: str
-    tipo: Optional[str] = None
-    monto: float
-    descripcion: Optional[str] = None
+    concepto: str = Field(..., min_length=2, max_length=100, description="Concepto de la bonificación (obligatorio)")
+    tipo: Optional[str] = Field(None, max_length=50, description="Tipo de bonificación")
+    monto: float = Field(..., gt=0, description="Monto de la bonificación (debe ser positivo)")
+    descripcion: Optional[str] = Field(None, max_length=200, description="Descripción adicional")
+    
+    @field_validator('monto')
+    @classmethod
+    def validate_monto_positivo(cls, v):
+        if v <= 0:
+            raise ValueError('El monto de la bonificación debe ser mayor que cero')
+        return v
 
 # Modelo para deducción en nómina
 class DeduccionItem(BaseModel):
-    concepto: str
-    tipo: Optional[str] = None
-    monto: float
-    descripcion: Optional[str] = None
+    concepto: str = Field(..., min_length=2, max_length=100, description="Concepto de la deducción (obligatorio)")
+    tipo: Optional[str] = Field(None, max_length=50, description="Tipo de deducción")
+    monto: float = Field(..., gt=0, description="Monto de la deducción (debe ser positivo)")
+    descripcion: Optional[str] = Field(None, max_length=200, description="Descripción adicional")
+    
+    @field_validator('monto')
+    @classmethod
+    def validate_monto_positivo(cls, v):
+        if v <= 0:
+            raise ValueError('El monto de la deducción debe ser mayor que cero')
+        return v
 
 # Modelo para crear nómina
 class NominaCreate(BaseModel):
-    id_empleado: int
-    mes: int = Field(..., ge=1, le=12)
-    anio: int = Field(..., ge=2000, le=2100)
-    salario_base: float = Field(..., gt=0)
-    bonificaciones: Optional[list[BonificacionItem]] = []
-    deducciones: Optional[list[DeduccionItem]] = []
-    fecha_pago: Optional[str] = None
-    observaciones: Optional[str] = None
+    id_empleado: int = Field(..., gt=0, description="ID del empleado (obligatorio)")
+    mes: int = Field(..., ge=1, le=12, description="Mes de la nómina (1-12, obligatorio)")
+    anio: int = Field(..., ge=2000, le=2100, description="Año de la nómina (2000-2100, obligatorio)")
+    salario_base: float = Field(..., gt=0, description="Salario base (debe ser positivo, obligatorio)")
+    bonificaciones: Optional[list[BonificacionItem]] = Field(default=[], description="Lista de bonificaciones")
+    deducciones: Optional[list[DeduccionItem]] = Field(default=[], description="Lista de deducciones")
+    fecha_pago: Optional[str] = Field(None, description="Fecha de pago (YYYY-MM-DD)")
+    observaciones: Optional[str] = Field(None, max_length=500, description="Observaciones adicionales")
+    
+    @field_validator('mes', 'anio')
+    @classmethod
+    def validate_periodo(cls, v, info):
+        """Validar que el período sea válido"""
+        if info.field_name == 'mes':
+            if not (1 <= v <= 12):
+                raise ValueError('El mes debe estar entre 1 y 12')
+        elif info.field_name == 'anio':
+            if not (2000 <= v <= 2100):
+                raise ValueError('El año debe estar entre 2000 y 2100')
+        return v
+    
+    @field_validator('salario_base')
+    @classmethod
+    def validate_salario_positivo(cls, v):
+        """Validar que el salario sea positivo"""
+        if v <= 0:
+            raise ValueError('El salario base debe ser mayor que cero')
+        if v > 1000000:
+            raise ValueError('El salario base no puede exceder L. 1,000,000.00')
+        return v
+    
+    @field_validator('fecha_pago')
+    @classmethod
+    def validate_fecha_pago(cls, v):
+        """Validar formato de fecha de pago"""
+        if v is None:
+            return v
+        try:
+            datetime.strptime(v, '%Y-%m-%d')
+        except ValueError:
+            raise ValueError('La fecha de pago debe estar en formato YYYY-MM-DD')
+        return v
+    
+    @model_validator(mode='after')
+    def validate_bonificaciones_deducciones(self):
+        """Validar que las bonificaciones y deducciones tengan montos válidos"""
+        if self.bonificaciones:
+            for bonif in self.bonificaciones:
+                if bonif.monto < 0:
+                    raise ValueError('Las bonificaciones no pueden tener montos negativos')
+                if bonif.monto > 100000:
+                    raise ValueError('Las bonificaciones no pueden exceder L. 100,000.00')
+        
+        if self.deducciones:
+            for deduc in self.deducciones:
+                if deduc.monto < 0:
+                    raise ValueError('Las deducciones no pueden tener montos negativos')
+                if deduc.monto > self.salario_base:
+                    raise ValueError('Las deducciones no pueden exceder el salario base')
+        
+        return self
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "id_empleado": 1,
+                "mes": 11,
+                "anio": 2025,
+                "salario_base": 25000.00,
+                "bonificaciones": [
+                    {
+                        "concepto": "Bono Navideño",
+                        "tipo": "festivo",
+                        "monto": 5000.00,
+                        "descripcion": "Bono de fin de año"
+                    }
+                ],
+                "deducciones": [
+                    {
+                        "concepto": "IHSS",
+                        "tipo": "seguro",
+                        "monto": 625.00,
+                        "descripcion": "Seguro social 2.5%"
+                    }
+                ],
+                "fecha_pago": "2025-11-30",
+                "observaciones": "Nómina mensual de noviembre"
+            }
+        }
 
 # Modelo para actualizar nómina
 class NominaUpdate(BaseModel):

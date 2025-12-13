@@ -3,7 +3,7 @@ Servidor FastAPI principal para el Sistema de RRHH
 """
 from fastapi import FastAPI, HTTPException, Depends, status, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from typing import List, Optional
 from contextlib import asynccontextmanager
 import uvicorn
@@ -14,11 +14,12 @@ import logging
 import sqlite3
 
 from database import get_db, Database
+from nomina_calculator import calcular_nomina_mensual, calcular_nomina_empleado
 from models import (
     UsuarioCreate, UsuarioUpdate, UsuarioResponse, UsuarioLogin,
     DepartamentoCreate, DepartamentoUpdate,
     EmpleadoCreate, EmpleadoUpdate,
-    ContratoCreate, ContratoUpdate,
+    ContratoCreate, ContratoUpdate, ContratoCrearRapido,
     AsistenciaCreate, AsistenciaUpdate, AsistenciaReporteRequest,
     NominaCreate, NominaUpdate,
     VacacionPermisoCreate, VacacionPermisoUpdate,
@@ -93,6 +94,72 @@ def get_empleado_nombre_sql(alias_empleado: str = "e") -> str:
         Expresión SQL para obtener el nombre del empleado
     """
     return f"COALESCE({alias_empleado}.nombre || ' ' || {alias_empleado}.apellido, 'Empleado no encontrado')"
+
+# Función helper para obtener datos completos del empleado
+def get_empleado_completo(db: Database, id_empleado: int) -> Optional[dict]:
+    """
+    Obtiene todos los datos de un empleado por su ID.
+    
+    Args:
+        db: Instancia de Database
+        id_empleado: ID del empleado
+        
+    Returns:
+        Diccionario con los datos del empleado o None si no existe
+    """
+    try:
+        # Intentar con tabla Empleados (mayúscula) con JOIN a Puestos y Departamentos
+        empleado = db.fetch_one("""
+            SELECT 
+                e.id_empleado,
+                e.nombre,
+                e.apellido,
+                e.correo,
+                e.telefono,
+                e.direccion,
+                e.cedula,
+                e.fecha_nacimiento,
+                e.genero,
+                e.estado_civil,
+                e.nacionalidad,
+                e.fecha_ingreso,
+                e.estado,
+                e.id_departamento,
+                e.id_puesto,
+                p.nombre_puesto as puesto,
+                p.salario_base as salario_puesto,
+                d.nombre_departamento
+            FROM Empleados e
+            LEFT JOIN Puestos p ON e.id_puesto = p.id_puesto
+            LEFT JOIN Departamentos d ON e.id_departamento = d.id_departamento
+            WHERE e.id_empleado = ?
+        """, (id_empleado,))
+        
+        if empleado:
+            return empleado
+            
+        # Si no se encuentra, intentar con tabla empleados (minúscula)
+        empleado = db.fetch_one("""
+            SELECT 
+                id as id_empleado,
+                nombre,
+                apellido,
+                email as correo,
+                telefono,
+                direccion,
+                puesto,
+                salario,
+                fecha_ingreso,
+                departamento_id as id_departamento
+            FROM empleados
+            WHERE id = ?
+        """, (id_empleado,))
+        
+        return empleado
+        
+    except Exception as e:
+        logger.error(f"Error al obtener datos del empleado {id_empleado}: {str(e)}")
+        return None
 
 # Función helper para obtener el nombre de un empleado por su ID
 def get_empleado_nombre_by_id(db: Database, id_empleado: int) -> str:
@@ -2946,6 +3013,360 @@ async def alertas_vencimiento_contratos(dias: int = 30, db: Database = Depends(g
             detail=f"Error al obtener alertas: {str(e)}"
         )
 
+@app.get("/api/contratos/vencimiento", response_model=dict)
+async def contratos_vencimiento(dias: int = 30, db: Database = Depends(get_db)):
+    """
+    Obtener contratos que vencen en los próximos N días
+    Similar a /alertas/vencimiento pero con formato específico
+    """
+    try:
+        if dias < 1 or dias > 365:
+            raise HTTPException(
+                status_code=400, 
+                detail="El número de días debe estar entre 1 y 365"
+            )
+        
+        if not db.connection:
+            db.connect()
+        
+        fecha_limite = (datetime.now() + timedelta(days=dias)).date()
+        contratos = []
+        
+        try:
+            contratos = db.fetch_all("""
+                SELECT c.*, 
+                       COALESCE(e.nombre || ' ' || e.apellido, 'Empleado no encontrado') as empleado_nombre,
+                       CAST(julianday(c.fecha_fin) - julianday('now') AS INTEGER) as dias_restantes,
+                       CASE 
+                           WHEN c.fecha_fin < date('now') THEN 'vencido'
+                           WHEN c.fecha_fin <= date('now', '+' || ? || ' days') THEN 'por_vencer'
+                           ELSE 'vigente'
+                       END as estado_vencimiento
+                FROM Contratos c
+                LEFT JOIN Empleados e ON c.id_empleado = e.id_empleado
+                WHERE c.fecha_fin IS NOT NULL 
+                AND c.fecha_fin <= ? 
+                AND c.fecha_fin >= date('now')
+                ORDER BY c.fecha_fin ASC
+            """, (dias, fecha_limite))
+        except Exception as table_error:
+            logger.warning(f"Error al consultar contratos por vencimiento: {str(table_error)}")
+            contratos = []
+        
+        return {
+            "status": "success", 
+            "data": contratos, 
+            "count": len(contratos), 
+            "dias_consulta": dias,
+            "fecha_limite": str(fecha_limite)
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error al obtener contratos por vencimiento: {str(e)}")
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Error al obtener contratos por vencimiento: {str(e)}"
+        )
+
+@app.post("/api/contratos/crear", response_model=dict, status_code=201)
+async def crear_contrato_rapido(
+    datos: ContratoCrearRapido,
+    db: Database = Depends(get_db),
+    current_user: Optional[dict] = Depends(get_current_user_optional)
+):
+    """
+    Crea un contrato laboral automáticamente desde los datos del empleado.
+    
+    Este endpoint toma el id_empleado y genera automáticamente el contrato
+    usando los datos del empleado (nombre, puesto, salario, fecha ingreso, etc.)
+    
+    POST /api/contratos/crear
+    
+    Args:
+        datos: Datos mínimos para crear el contrato (id_empleado y tipo_contrato)
+        
+    Returns:
+        Contrato creado con todos los datos completados
+    """
+    try:
+        # Validar que el empleado existe
+        if not db.connection:
+            db.connect()
+        
+        empleado = get_empleado_completo(db, datos.id_empleado)
+        
+        if not empleado:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Empleado con ID {datos.id_empleado} no encontrado"
+            )
+        
+        # Preparar datos del trabajador desde el empleado
+        nombre_empleado = f"{empleado.get('nombre', '')} {empleado.get('apellido', '')}".strip()
+        trabajador_nombre = nombre_empleado
+        trabajador_email = empleado.get('correo') or empleado.get('email')
+        trabajador_telefono = empleado.get('telefono')
+        trabajador_direccion = empleado.get('direccion')
+        trabajador_dni = empleado.get('cedula') or empleado.get('dni', '')
+        trabajador_nacionalidad = empleado.get('nacionalidad', 'Hondureña')
+        trabajador_estado_civil = empleado.get('estado_civil', 'Soltero')
+        
+        # Preparar datos del puesto
+        nombre_puesto = empleado.get('puesto') or empleado.get('nombre_puesto', 'No especificado')
+        salario_base = empleado.get('salario') or empleado.get('salario_puesto') or empleado.get('salario_base', 0)
+        id_departamento = empleado.get('id_departamento')
+        nombre_departamento = empleado.get('nombre_departamento', '')
+        
+        # Fecha de inicio desde fecha_ingreso del empleado
+        fecha_ingreso = empleado.get('fecha_ingreso')
+        if fecha_ingreso:
+            # Si es string, convertir a formato correcto
+            if isinstance(fecha_ingreso, str):
+                fecha_inicio = fecha_ingreso.split()[0] if ' ' in fecha_ingreso else fecha_ingreso
+            else:
+                fecha_inicio = str(fecha_ingreso)
+        else:
+            # Si no tiene fecha_ingreso, usar fecha actual
+            fecha_inicio = datetime.now().strftime('%Y-%m-%d')
+        
+        # Validar que el salario sea positivo
+        if salario_base <= 0:
+            raise HTTPException(
+                status_code=400,
+                detail="El empleado no tiene un salario válido. Por favor, actualice el salario del empleado primero."
+            )
+        
+        # Validar que tenga DNI
+        if not trabajador_dni:
+            raise HTTPException(
+                status_code=400,
+                detail="El empleado no tiene DNI registrado. Por favor, actualice el DNI del empleado primero."
+            )
+        
+        # Valores por defecto para la empresa (pueden ser configurados)
+        empresa_nombre = datos.empresa_nombre or "Empresa S.A."
+        empresa_representante_legal = datos.empresa_representante_legal or "Representante Legal"
+        empresa_rtn = datos.empresa_rtn or "0801-0000-00000"
+        empresa_direccion = "Tegucigalpa, Honduras"
+        empresa_telefono = "+504 0000-0000"
+        empresa_email = "contacto@empresa.com"
+        
+        # Valores por defecto para condiciones de trabajo
+        jornada_laboral = "Lunes a Viernes"
+        horario_entrada = "08:00"
+        horario_salida = "17:00"
+        tiempo_descanso = "1 hora de almuerzo"
+        lugar_trabajo = nombre_departamento or "Oficina principal"
+        
+        # Valores por defecto para remuneración
+        forma_pago = "mensual"
+        metodo_pago = "transferencia bancaria"
+        
+        # Valores por defecto para beneficios (según ley hondureña)
+        vacaciones_anuales = 10  # Mínimo legal en Honduras
+        aguinaldo = True
+        prestaciones_sociales = "Según Código de Trabajo de Honduras"
+        dias_feriados = "Días feriados nacionales según calendario oficial"
+        permisos_ley = "Permisos según Código de Trabajo de Honduras"
+        
+        # Cláusulas por defecto
+        derechos_empleado = "Derecho a recibir salario puntual, vacaciones, aguinaldo y prestaciones sociales según la ley."
+        obligaciones_empleado = "Cumplir con las funciones asignadas, respetar horarios y mantener confidencialidad."
+        derechos_empleador = "Dirigir el trabajo, establecer políticas y recibir el trabajo acordado."
+        obligaciones_empleador = "Proporcionar ambiente de trabajo seguro, pagar salarios puntualmente y cumplir con prestaciones legales."
+        
+        # Insertar el contrato
+        cursor = db.execute_query("""
+            INSERT INTO Contratos (
+                id_empleado, nombre_empleado,
+                empresa_nombre, empresa_representante_legal, empresa_rtn, empresa_direccion, empresa_telefono, empresa_email,
+                trabajador_nombre_completo, trabajador_dni, trabajador_nacionalidad, trabajador_estado_civil,
+                trabajador_direccion, trabajador_telefono, trabajador_email,
+                nombre_puesto, descripcion_puesto, id_departamento, jefe_inmediato,
+                tipo_contrato, jornada_laboral_dias, horario_entrada, horario_salida, tiempo_descanso, lugar_trabajo,
+                salario_base, forma_pago, metodo_pago, bonificaciones, comisiones, incentivos, deducciones,
+                fecha_inicio, fecha_fin, periodo_prueba_dias,
+                derechos_empleado, obligaciones_empleado, derechos_empleador, obligaciones_empleador,
+                vacaciones_anuales, aguinaldo, prestaciones_sociales, dias_feriados, permisos_ley,
+                clausula_confidencialidad, politica_datos, no_competencia,
+                causas_terminacion, tiempo_preaviso, pago_prestaciones,
+                politica_uniformes, uso_vehiculos, trabajo_remoto, politica_horas_extras, uso_sistemas,
+                condiciones, estado
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            datos.id_empleado, nombre_empleado,
+            empresa_nombre, empresa_representante_legal, empresa_rtn, empresa_direccion, empresa_telefono, empresa_email,
+            trabajador_nombre, trabajador_dni, trabajador_nacionalidad, trabajador_estado_civil,
+            trabajador_direccion, trabajador_telefono, trabajador_email,
+            nombre_puesto, datos.descripcion_puesto, id_departamento, datos.jefe_inmediato,
+            datos.tipo_contrato, jornada_laboral, horario_entrada, horario_salida, tiempo_descanso, lugar_trabajo,
+            salario_base, forma_pago, metodo_pago, None, None, None, None,
+            fecha_inicio, datos.fecha_fin, datos.periodo_prueba_dias,
+            derechos_empleado, obligaciones_empleado, derechos_empleador, obligaciones_empleador,
+            vacaciones_anuales, 1 if aguinaldo else 0, prestaciones_sociales, dias_feriados, permisos_ley,
+            None, None, None,
+            None, None, None,
+            None, None, None, None, None,
+            datos.condiciones, 'activo'
+        ))
+        
+        # Obtener el contrato creado
+        nuevo_contrato_id = cursor.lastrowid
+        try:
+            nuevo_contrato = db.fetch_one("""
+                SELECT c.*, 
+                       COALESCE(e.nombre || ' ' || e.apellido, 'Empleado no encontrado') as empleado_nombre
+                FROM Contratos c
+                LEFT JOIN Empleados e ON c.id_empleado = e.id_empleado
+                WHERE c.id_contrato = ?
+            """, (nuevo_contrato_id,))
+        except Exception:
+            nuevo_contrato = db.fetch_one("""
+                SELECT * FROM Contratos WHERE id_contrato = ?
+            """, (nuevo_contrato_id,))
+            if nuevo_contrato:
+                nuevo_contrato['empleado_nombre'] = get_empleado_nombre_by_id(db, nuevo_contrato.get('id_empleado', 0))
+        
+        logger.info(f"Contrato {nuevo_contrato_id} creado automáticamente para empleado {datos.id_empleado}")
+        
+        return {
+            "status": "success",
+            "message": f"Contrato creado exitosamente para {nombre_empleado}",
+            "data": nuevo_contrato,
+            "id_contrato": nuevo_contrato_id
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error al crear contrato automático: {str(e)}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error al crear contrato: {str(e)}"
+        )
+
+@app.get("/api/contratos/{contrato_id}/pdf")
+async def generar_pdf_contrato(contrato_id: int, db: Database = Depends(get_db)):
+    """
+    Genera un PDF profesional del contrato
+    
+    GET /api/contratos/{contrato_id}/pdf
+    
+    Args:
+        contrato_id: ID del contrato a generar en PDF
+        
+    Returns:
+        StreamingResponse con el PDF del contrato
+        
+    Raises:
+        400: Si el ID es inválido
+        404: Si el contrato no existe
+        500: Si hay un error al generar el PDF
+    """
+    try:
+        if contrato_id < 1:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"ID de contrato inválido: {contrato_id}. El ID debe ser mayor a 0"
+            )
+        
+        if not db.connection:
+            db.connect()
+        
+        # Obtener el contrato
+        contrato = None
+        try:
+            contrato = db.fetch_one("""
+                SELECT c.*, 
+                       COALESCE(e.nombre || ' ' || e.apellido, 'Empleado no encontrado') as nombre_empleado
+                FROM Contratos c
+                LEFT JOIN Empleados e ON c.id_empleado = e.id_empleado
+                WHERE c.id_contrato = ?
+            """, (contrato_id,))
+        except Exception as e:
+            logger.warning(f"Error al consultar contrato con JOIN: {str(e)}")
+            try:
+                contrato = db.fetch_one("""
+                    SELECT * FROM Contratos WHERE id_contrato = ?
+                """, (contrato_id,))
+                if contrato:
+                    contrato['nombre_empleado'] = get_empleado_nombre_by_id(db, contrato.get('id_empleado', 0))
+            except Exception as e2:
+                logger.error(f"Error al consultar contrato sin JOIN: {str(e2)}")
+                contrato = None
+        
+        if not contrato:
+            # Verificar si existen contratos en la base de datos
+            try:
+                total_contratos = db.fetch_one("SELECT COUNT(*) as total FROM Contratos")
+                total = total_contratos.get('total', 0) if total_contratos else 0
+                
+                # Obtener el rango de IDs disponibles
+                min_max = db.fetch_one("SELECT MIN(id_contrato) as min_id, MAX(id_contrato) as max_id FROM Contratos")
+                min_id = min_max.get('min_id') if min_max else None
+                max_id = min_max.get('max_id') if min_max else None
+                
+                mensaje = f"Contrato con ID {contrato_id} no encontrado"
+                if total > 0 and min_id and max_id:
+                    mensaje += f". IDs disponibles: {min_id} - {max_id}"
+                elif total == 0:
+                    mensaje += ". No hay contratos registrados en el sistema"
+                
+                raise HTTPException(status_code=404, detail=mensaje)
+            except Exception as e:
+                logger.error(f"Error al verificar contratos: {str(e)}")
+                raise HTTPException(
+                    status_code=404, 
+                    detail=f"Contrato con ID {contrato_id} no encontrado"
+                )
+        
+        # Obtener datos adicionales del empleado para complementar el PDF
+        if contrato.get('id_empleado'):
+            empleado_completo = get_empleado_completo(db, contrato.get('id_empleado'))
+            if empleado_completo:
+                # Complementar datos del contrato con datos del empleado si faltan
+                if not contrato.get('trabajador_nombre_completo'):
+                    nombre_completo = f"{empleado_completo.get('nombre', '')} {empleado_completo.get('apellido', '')}".strip()
+                    contrato['trabajador_nombre_completo'] = nombre_completo
+                if not contrato.get('trabajador_email'):
+                    contrato['trabajador_email'] = empleado_completo.get('correo') or empleado_completo.get('email')
+                if not contrato.get('trabajador_telefono'):
+                    contrato['trabajador_telefono'] = empleado_completo.get('telefono')
+                if not contrato.get('trabajador_direccion'):
+                    contrato['trabajador_direccion'] = empleado_completo.get('direccion')
+                if not contrato.get('trabajador_dni'):
+                    contrato['trabajador_dni'] = empleado_completo.get('cedula') or empleado_completo.get('dni', '')
+                if not contrato.get('nombre_puesto'):
+                    contrato['nombre_puesto'] = empleado_completo.get('puesto') or empleado_completo.get('nombre_puesto')
+                if not contrato.get('salario_base') and not contrato.get('salario'):
+                    contrato['salario_base'] = empleado_completo.get('salario') or empleado_completo.get('salario_puesto', 0)
+        
+        # Generar PDF con datos combinados del contrato y empleado
+        pdf_buffer = ExportHelper.export_contract_pdf(contrato)
+        
+        # Preparar nombre del archivo
+        nombre_empleado = contrato.get('trabajador_nombre_completo') or contrato.get('nombre_empleado', 'contrato')
+        nombre_archivo = f"contrato_{nombre_empleado.replace(' ', '_')}_{contrato_id}.pdf"
+        
+        return StreamingResponse(
+            pdf_buffer,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f"attachment; filename={nombre_archivo}"
+            }
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error al generar PDF del contrato {contrato_id}: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error al generar PDF: {str(e)}"
+        )
+
 # ============================================================================
 #                           ENDPOINTS DE ASISTENCIAS
 # ============================================================================
@@ -3362,13 +3783,12 @@ async def listar_nominas(
         nominas = []
         params = []
         
-        # Intentar obtener de la tabla nueva (Nomina con Empleados) primero
+        # Consulta optimizada: usar nombre_empleado que ya existe en la tabla
+        # y evitar JOIN innecesario que puede causar problemas
         try:
             query = """
-                SELECT n.*, 
-                       COALESCE(e.nombre || ' ' || e.apellido, 'Empleado no encontrado') as nombre_empleado
+                SELECT n.*
                 FROM Nomina n
-                LEFT JOIN Empleados e ON n.id_empleado = e.id_empleado
                 WHERE 1=1
             """
             
@@ -3382,58 +3802,78 @@ async def listar_nominas(
                 query += " AND n.anio = ?"
                 params.append(anio)
             
-            query += " ORDER BY n.anio DESC, n.mes DESC, n.fecha_creacion DESC"
+            query += " ORDER BY n.anio DESC, n.mes DESC, COALESCE(n.fecha_creacion, n.id_nomina) DESC"
             
             nominas = db.fetch_all(query, tuple(params))
-        except Exception as table_error:
-            # Si falla el JOIN, intentar sin JOIN
-            error_msg = str(table_error).lower()
-            logger.warning(f"Error al consultar nóminas: {str(table_error)}")
             
-            try:
-                query = """
-                    SELECT n.*
-                    FROM Nomina n
-                    WHERE 1=1
-                """
-                
-                if id_empleado:
-                    query += " AND n.id_empleado = ?"
-                    params.append(id_empleado)
-                if mes:
-                    query += " AND n.mes = ?"
-                    params.append(mes)
-                if anio:
-                    query += " AND n.anio = ?"
-                    params.append(anio)
-                
-                query += " ORDER BY n.anio DESC, n.mes DESC, n.fecha_creacion DESC"
-                
-                nominas = db.fetch_all(query, tuple(params))
-                # Agregar nombre de empleado a cada nómina
-                for nomina in nominas:
+            # Si nombre_empleado está vacío o null, intentar obtenerlo de Empleados
+            for nomina in nominas:
+                if not nomina.get('nombre_empleado'):
                     nomina['nombre_empleado'] = get_empleado_nombre_by_id(db, nomina.get('id_empleado', 0))
-            except Exception as fallback_error:
-                logger.error(f"Error al consultar nóminas sin JOIN: {str(fallback_error)}")
-                # Si la tabla no existe, retornar lista vacía
-                if 'no such table' in error_msg or 'does not exist' in error_msg:
-                    logger.info("Tabla Nomina no existe, retornando lista vacía")
-                    nominas = []
-                else:
-                    nominas = []
+                
+                # Normalizar nombre de campo fecha_pag -> fecha_pago si es necesario
+                if 'fecha_pag' in nomina and 'fecha_pago' not in nomina:
+                    nomina['fecha_pago'] = nomina.get('fecha_pag')
+                    del nomina['fecha_pag']
+                    
+        except Exception as table_error:
+            error_msg = str(table_error).lower()
+            logger.error(f"Error al consultar nóminas: {str(table_error)}")
+            
+            # Si la tabla no existe, retornar lista vacía
+            if 'no such table' in error_msg or 'does not exist' in error_msg:
+                logger.info("Tabla Nomina no existe, retornando lista vacía")
+                nominas = []
+            else:
+                nominas = []
         
-        # Obtener detalles de bonificaciones y deducciones
-        for nomina in nominas:
-            bonificaciones = db.fetch_all(
-                "SELECT * FROM Nomina_Bonificaciones WHERE id_nomina = ?",
-                (nomina['id_nomina'],)
-            )
-            deducciones = db.fetch_all(
-                "SELECT * FROM Nomina_Deducciones WHERE id_nomina = ?",
-                (nomina['id_nomina'],)
-            )
-            nomina['bonificaciones_detalle'] = bonificaciones
-            nomina['deducciones_detalle'] = deducciones
+        # OPTIMIZACIÓN: Obtener todas las bonificaciones y deducciones en una sola consulta
+        # en lugar de hacer consultas individuales (problema N+1)
+        if nominas:
+            nomina_ids = [n['id_nomina'] for n in nominas]
+            placeholders = ','.join(['?'] * len(nomina_ids))
+            
+            # Obtener todas las bonificaciones de una vez
+            try:
+                bonificaciones_all = db.fetch_all(
+                    f"SELECT * FROM Nomina_Bonificaciones WHERE id_nomina IN ({placeholders})",
+                    tuple(nomina_ids)
+                )
+            except Exception as e:
+                logger.warning(f"Error al obtener bonificaciones: {str(e)}")
+                bonificaciones_all = []
+            
+            # Obtener todas las deducciones de una vez
+            try:
+                deducciones_all = db.fetch_all(
+                    f"SELECT * FROM Nomina_Deducciones WHERE id_nomina IN ({placeholders})",
+                    tuple(nomina_ids)
+                )
+            except Exception as e:
+                logger.warning(f"Error al obtener deducciones: {str(e)}")
+                deducciones_all = []
+            
+            # Agrupar bonificaciones y deducciones por id_nomina
+            bonificaciones_dict = {}
+            deducciones_dict = {}
+            
+            for bonif in bonificaciones_all:
+                nomina_id = bonif['id_nomina']
+                if nomina_id not in bonificaciones_dict:
+                    bonificaciones_dict[nomina_id] = []
+                bonificaciones_dict[nomina_id].append(bonif)
+            
+            for deduc in deducciones_all:
+                nomina_id = deduc['id_nomina']
+                if nomina_id not in deducciones_dict:
+                    deducciones_dict[nomina_id] = []
+                deducciones_dict[nomina_id].append(deduc)
+            
+            # Asignar bonificaciones y deducciones a cada nómina
+            for nomina in nominas:
+                nomina_id = nomina['id_nomina']
+                nomina['bonificaciones_detalle'] = bonificaciones_dict.get(nomina_id, [])
+                nomina['deducciones_detalle'] = deducciones_dict.get(nomina_id, [])
         
         return {"success": True, "data": nominas, "count": len(nominas)}
     except Exception as e:
@@ -3503,10 +3943,47 @@ async def crear_nomina(
         # Calcular periodo
         periodo = f"{nomina.mes:02d}/{nomina.anio}"
         
-        # Calcular totales
-        total_bonificaciones = sum(b.get('monto', 0) for b in (nomina.bonificaciones or []))
-        total_deducciones = sum(d.get('monto', 0) for d in (nomina.deducciones or []))
-        salario_neto = nomina.salario_base + total_bonificaciones - total_deducciones
+        # Convertir bonificaciones y deducciones a formato dict si son objetos
+        bonificaciones_dict = []
+        if nomina.bonificaciones:
+            for b in nomina.bonificaciones:
+                if isinstance(b, dict):
+                    bonificaciones_dict.append(b)
+                else:
+                    bonificaciones_dict.append({
+                        'concepto': b.concepto,
+                        'tipo': b.tipo,
+                        'monto': b.monto,
+                        'descripcion': b.descripcion
+                    })
+        
+        deducciones_dict = []
+        if nomina.deducciones:
+            for d in nomina.deducciones:
+                if isinstance(d, dict):
+                    deducciones_dict.append(d)
+                else:
+                    deducciones_dict.append({
+                        'concepto': d.concepto,
+                        'tipo': d.tipo,
+                        'monto': d.monto,
+                        'descripcion': d.descripcion
+                    })
+        
+        # Calcular nómina usando la función de cálculo (incluye deducciones legales)
+        calculo = calcular_nomina_mensual(
+            salario_base=nomina.salario_base,
+            bonificaciones=bonificaciones_dict,
+            deducciones_adicionales=deducciones_dict,
+            mes=nomina.mes,
+            anio=nomina.anio
+        )
+        
+        # Combinar deducciones legales con adicionales
+        todas_deducciones = calculo['detalle_deducciones_legales'] + calculo['detalle_deducciones']
+        total_deducciones = calculo['total_deducciones']
+        total_bonificaciones = calculo['total_bonificaciones']
+        salario_neto = calculo['salario_neto']
         
         # Insertar nómina
         cursor = db.execute_query("""
@@ -3521,17 +3998,17 @@ async def crear_nomina(
         
         nomina_id = cursor.lastrowid
         
-        # Insertar bonificaciones
-        if nomina.bonificaciones:
-            for bonif in nomina.bonificaciones:
+        # Insertar bonificaciones (de la función de cálculo)
+        if calculo['detalle_bonificaciones']:
+            for bonif in calculo['detalle_bonificaciones']:
                 db.execute_query("""
                     INSERT INTO Nomina_Bonificaciones (id_nomina, concepto, tipo, monto, descripcion)
                     VALUES (?, ?, ?, ?, ?)
                 """, (nomina_id, bonif.get('concepto', ''), bonif.get('tipo'), bonif.get('monto', 0), bonif.get('descripcion')))
         
-        # Insertar deducciones
-        if nomina.deducciones:
-            for deduc in nomina.deducciones:
+        # Insertar deducciones (legales + adicionales)
+        if todas_deducciones:
+            for deduc in todas_deducciones:
                 db.execute_query("""
                     INSERT INTO Nomina_Deducciones (id_nomina, concepto, tipo, monto, descripcion)
                     VALUES (?, ?, ?, ?, ?)
@@ -3614,6 +4091,278 @@ async def historial_empleado(
         return {"success": True, "data": nominas, "count": len(nominas)}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error al obtener historial: {str(e)}")
+
+@app.post("/api/nomina/calcular", response_model=dict)
+async def calcular_nomina(
+    id_empleado: int,
+    mes: int,
+    anio: int,
+    salario_base: float,
+    bonificaciones: Optional[List[dict]] = None,
+    deducciones_adicionales: Optional[List[dict]] = None,
+    current_user: dict = Depends(require_gerente_or_above),
+    db: Database = Depends(get_db)
+):
+    """
+    Calcula la nómina mensual para un empleado con deducciones legales de Honduras
+    Incluye: IHSS, RAP, ISR, bonificaciones y deducciones adicionales
+    """
+    try:
+        # Verificar que el empleado existe
+        empleado = db.fetch_one("SELECT id_empleado FROM Empleados WHERE id_empleado = ?", (id_empleado,))
+        if not empleado:
+            raise HTTPException(status_code=400, detail=f"Empleado con ID {id_empleado} no encontrado")
+        
+        # Calcular nómina usando la función de cálculo
+        resultado = calcular_nomina_empleado(
+            id_empleado=id_empleado,
+            mes=mes,
+            anio=anio,
+            salario_base=salario_base,
+            bonificaciones=bonificaciones,
+            deducciones_adicionales=deducciones_adicionales,
+            db=db
+        )
+        
+        return {
+            "success": True,
+            "message": "Nómina calculada exitosamente",
+            "data": resultado
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error al calcular nómina: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error al calcular nómina: {str(e)}")
+
+@app.get("/api/nomina/{nomina_id}/recibo-pdf")
+async def generar_recibo_pdf(
+    nomina_id: int,
+    current_user: dict = Depends(get_current_active_user),
+    db: Database = Depends(get_db)
+):
+    """
+    Genera un PDF profesional del recibo de pago usando reportlab
+    Incluye encabezado con datos del empleado, desglose de deducciones y total neto
+    """
+    try:
+        from reportlab.lib.pagesizes import letter, A4
+        from reportlab.lib import colors
+        from reportlab.lib.units import inch
+        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+        from io import BytesIO
+        from fastapi.responses import StreamingResponse
+        
+        # Obtener datos de la nómina
+        nomina = db.fetch_one("""
+            SELECT n.*, 
+                   COALESCE(e.nombre || ' ' || e.apellido, 'Empleado no encontrado') as nombre_empleado,
+                   e.correo as email_empleado,
+                   e.telefono as telefono_empleado,
+                   d.nombre_departamento
+            FROM Nomina n
+            LEFT JOIN Empleados e ON n.id_empleado = e.id_empleado
+            LEFT JOIN Departamentos d ON e.id_departamento = d.id_departamento
+            WHERE n.id_nomina = ?
+        """, (nomina_id,))
+        
+        if not nomina:
+            raise HTTPException(status_code=404, detail=f"Nómina con ID {nomina_id} no encontrada")
+        
+        # Verificar permisos
+        empleado_id = nomina.get('id_empleado')
+        if not can_view_nomina(current_user, empleado_id, db):
+            raise HTTPException(
+                status_code=403,
+                detail="No tiene permisos para ver este recibo"
+            )
+        
+        # Obtener bonificaciones y deducciones
+        bonificaciones = db.fetch_all(
+            "SELECT * FROM Nomina_Bonificaciones WHERE id_nomina = ? ORDER BY concepto",
+            (nomina_id,)
+        )
+        deducciones = db.fetch_all(
+            "SELECT * FROM Nomina_Deducciones WHERE id_nomina = ? ORDER BY concepto",
+            (nomina_id,)
+        )
+        
+        # Crear buffer para el PDF
+        buffer = BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=0.5*inch, bottomMargin=0.5*inch)
+        
+        # Estilos
+        styles = getSampleStyleSheet()
+        title_style = ParagraphStyle(
+            'CustomTitle',
+            parent=styles['Heading1'],
+            fontSize=20,
+            textColor=colors.HexColor('#1f2937'),
+            spaceAfter=30,
+            alignment=TA_CENTER
+        )
+        
+        heading_style = ParagraphStyle(
+            'CustomHeading',
+            parent=styles['Heading2'],
+            fontSize=14,
+            textColor=colors.HexColor('#374151'),
+            spaceAfter=12
+        )
+        
+        normal_style = styles['Normal']
+        normal_style.fontSize = 10
+        
+        # Contenido del PDF
+        story = []
+        
+        # Encabezado
+        story.append(Paragraph("RECIBO DE PAGO DE NÓMINA", title_style))
+        story.append(Spacer(1, 0.2*inch))
+        
+        # Información del empleado
+        empleado_info = [
+            ['<b>Empleado:</b>', nomina.get('nombre_empleado', 'N/A')],
+            ['<b>Departamento:</b>', nomina.get('nombre_departamento', 'N/A')],
+            ['<b>Período:</b>', nomina.get('periodo', 'N/A')],
+            ['<b>Fecha de Pago:</b>', nomina.get('fecha_pago', 'Pendiente') or 'Pendiente'],
+            ['<b>Estado:</b>', nomina.get('estado', 'N/A')]
+        ]
+        
+        empleado_table = Table(empleado_info, colWidths=[2*inch, 4*inch])
+        empleado_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#f3f4f6')),
+            ('TEXTCOLOR', (0, 0), (-1, -1), colors.HexColor('#1f2937')),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+            ('FONTNAME', (1, 0), (1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 0), (-1, -1), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+            ('TOPPADDING', (0, 0), (-1, -1), 8),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#e5e7eb'))
+        ]))
+        story.append(empleado_table)
+        story.append(Spacer(1, 0.3*inch))
+        
+        # Desglose de ingresos
+        story.append(Paragraph("INGRESOS", heading_style))
+        ingresos_data = [['Concepto', 'Descripción', 'Monto']]
+        ingresos_data.append(['Salario Base', '-', f"L. {nomina.get('salario_base', 0):,.2f}"])
+        
+        total_bonificaciones = 0
+        for bonif in bonificaciones:
+            concepto = bonif.get('concepto', '')
+            descripcion = bonif.get('descripcion', '') or '-'
+            monto = bonif.get('monto', 0)
+            total_bonificaciones += monto
+            ingresos_data.append([concepto, descripcion, f"L. {monto:,.2f}"])
+        
+        ingresos_table = Table(ingresos_data, colWidths=[2*inch, 3*inch, 1.5*inch])
+        ingresos_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#667eea')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('ALIGN', (2, 0), (2, -1), 'RIGHT'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 11),
+            ('FONTSIZE', (0, 1), (-1, -1), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+            ('TOPPADDING', (0, 0), (-1, -1), 8),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#e5e7eb')),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f9fafb')])
+        ]))
+        story.append(ingresos_table)
+        story.append(Spacer(1, 0.3*inch))
+        
+        # Desglose de deducciones
+        story.append(Paragraph("DEDUCCIONES", heading_style))
+        deducciones_data = [['Concepto', 'Descripción', 'Monto']]
+        
+        total_deducciones = 0
+        for deduc in deducciones:
+            concepto = deduc.get('concepto', '')
+            descripcion = deduc.get('descripcion', '') or '-'
+            monto = deduc.get('monto', 0)
+            total_deducciones += monto
+            deducciones_data.append([concepto, descripcion, f"L. {monto:,.2f}"])
+        
+        deducciones_table = Table(deducciones_data, colWidths=[2*inch, 3*inch, 1.5*inch])
+        deducciones_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#dc2626')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('ALIGN', (2, 0), (2, -1), 'RIGHT'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 11),
+            ('FONTSIZE', (0, 1), (-1, -1), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+            ('TOPPADDING', (0, 0), (-1, -1), 8),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#e5e7eb')),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f9fafb')])
+        ]))
+        story.append(deducciones_table)
+        story.append(Spacer(1, 0.3*inch))
+        
+        # Resumen total
+        salario_neto = nomina.get('salario_neto', 0)
+        resumen_data = [
+            ['<b>Salario Base</b>', f"<b>L. {nomina.get('salario_base', 0):,.2f}</b>"],
+            ['<b>Total Bonificaciones</b>', f"<b>L. {total_bonificaciones:,.2f}</b>"],
+            ['<b>Total Deducciones</b>', f"<b>L. {total_deducciones:,.2f}</b>"],
+            ['<b>SALARIO NETO</b>', f"<b>L. {salario_neto:,.2f}</b>"]
+        ]
+        
+        resumen_table = Table(resumen_data, colWidths=[4*inch, 2.5*inch])
+        resumen_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#059669')),
+            ('TEXTCOLOR', (0, -1), (-1, -1), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
+            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -2), 11),
+            ('FONTSIZE', (0, -1), (-1, -1), 14),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
+            ('TOPPADDING', (0, 0), (-1, -1), 12),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#e5e7eb'))
+        ]))
+        story.append(resumen_table)
+        story.append(Spacer(1, 0.5*inch))
+        
+        # Pie de página
+        fecha_generacion = datetime.now().strftime('%d de %B de %Y, %H:%M:%S')
+        pie_texto = f"<i>Recibo generado el {fecha_generacion}</i>"
+        story.append(Paragraph(pie_texto, ParagraphStyle(
+            'Pie',
+            parent=normal_style,
+            fontSize=8,
+            textColor=colors.HexColor('#6b7280'),
+            alignment=TA_CENTER
+        )))
+        
+        # Construir PDF
+        doc.build(story)
+        buffer.seek(0)
+        
+        # Generar nombre del archivo
+        nombre_empleado_limpio = nomina.get('nombre_empleado', 'Empleado').replace(' ', '_')
+        periodo = nomina.get('periodo', '').replace('/', '_')
+        filename = f"Recibo_Nomina_{nombre_empleado_limpio}_{periodo}.pdf"
+        
+        return StreamingResponse(
+            buffer,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f"attachment; filename={filename}"
+            }
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error al generar PDF de recibo: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error al generar PDF: {str(e)}")
 
 # ============================================================================
 #                           ENDPOINTS DE VACACIONES

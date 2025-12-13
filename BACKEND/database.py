@@ -514,6 +514,15 @@ class Database:
                 )
             ''')
             
+            # Crear índices para mejorar rendimiento de consultas
+            try:
+                self.execute_query('CREATE INDEX IF NOT EXISTS idx_nomina_id_empleado ON Nomina(id_empleado)')
+                self.execute_query('CREATE INDEX IF NOT EXISTS idx_nomina_mes_anio ON Nomina(mes, anio)')
+                self.execute_query('CREATE INDEX IF NOT EXISTS idx_nomina_fecha_creacion ON Nomina(fecha_creacion DESC)')
+                self.execute_query('CREATE INDEX IF NOT EXISTS idx_nomina_estado ON Nomina(estado)')
+            except Exception as e:
+                print(f"[ADVERTENCIA] Error al crear índices de Nomina: {e}")
+            
             # Tabla de Detalles de Bonificaciones en Nómina
             self.execute_query('''
                 CREATE TABLE IF NOT EXISTS Nomina_Bonificaciones (
@@ -527,6 +536,12 @@ class Database:
                 )
             ''')
             
+            # Índice para bonificaciones
+            try:
+                self.execute_query('CREATE INDEX IF NOT EXISTS idx_bonificaciones_id_nomina ON Nomina_Bonificaciones(id_nomina)')
+            except Exception as e:
+                print(f"[ADVERTENCIA] Error al crear índice de Bonificaciones: {e}")
+            
             # Tabla de Detalles de Deducciones en Nómina
             self.execute_query('''
                 CREATE TABLE IF NOT EXISTS Nomina_Deducciones (
@@ -539,6 +554,12 @@ class Database:
                     FOREIGN KEY (id_nomina) REFERENCES Nomina(id_nomina) ON DELETE CASCADE
                 )
             ''')
+            
+            # Índice para deducciones
+            try:
+                self.execute_query('CREATE INDEX IF NOT EXISTS idx_deducciones_id_nomina ON Nomina_Deducciones(id_nomina)')
+            except Exception as e:
+                print(f"[ADVERTENCIA] Error al crear índice de Deducciones: {e}")
             
             # Tabla de Configuración de Impuestos
             self.execute_query('''

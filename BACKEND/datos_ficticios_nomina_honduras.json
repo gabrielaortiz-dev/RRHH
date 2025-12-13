@@ -1,0 +1,392 @@
+[
+  {
+    "id_empleado": 1,
+    "nombre_empleado": "Juan Carlos Pérez",
+    "mes": 11,
+    "anio": 2025,
+    "periodo": "11/2025",
+    "salario_base": 25000.00,
+    "bonificaciones": [
+      {
+        "concepto": "Bono Navideño",
+        "tipo": "festivo",
+        "monto": 5000.00,
+        "descripcion": "Bono de fin de año 2025"
+      },
+      {
+        "concepto": "Bono Puntualidad",
+        "tipo": "puntualidad",
+        "monto": 500.00,
+        "descripcion": "Sin retardos en el mes"
+      }
+    ],
+    "deducciones": [
+      {
+        "concepto": "IHSS",
+        "tipo": "seguro_social",
+        "monto": 625.00,
+        "descripcion": "Instituto Hondureño de Seguridad Social (2.5% sobre base de L. 25,000.00)"
+      },
+      {
+        "concepto": "RAP",
+        "tipo": "ahorro_publico",
+        "monto": 250.00,
+        "descripcion": "Régimen de Ahorro Público (1% sobre base de L. 25,000.00)"
+      },
+      {
+        "concepto": "ISR",
+        "tipo": "impuesto_renta",
+        "monto": 2250.00,
+        "descripcion": "Impuesto sobre la Renta calculado según tabla vigente"
+      }
+    ],
+    "total_bonificaciones": 5500.00,
+    "total_deducciones": 3125.00,
+    "salario_neto": 27375.00,
+    "fecha_pago": "2025-11-30",
+    "estado": "pagado",
+    "observaciones": "Nómina mensual de noviembre con bono navideño"
+  },
+  {
+    "id_empleado": 2,
+    "nombre_empleado": "María Elena González",
+    "mes": 11,
+    "anio": 2025,
+    "periodo": "11/2025",
+    "salario_base": 35000.00,
+    "bonificaciones": [
+      {
+        "concepto": "Bono Antigüedad",
+        "tipo": "antigüedad",
+        "monto": 1750.00,
+        "descripcion": "Bono por 5 años de servicio (5% del salario base)"
+      },
+      {
+        "concepto": "Bono Productividad",
+        "tipo": "productividad",
+        "monto": 2000.00,
+        "descripcion": "Bono por cumplimiento de metas del mes"
+      }
+    ],
+    "deducciones": [
+      {
+        "concepto": "IHSS",
+        "tipo": "seguro_social",
+        "monto": 875.00,
+        "descripcion": "Instituto Hondureño de Seguridad Social (2.5% sobre base de L. 35,000.00)"
+      },
+      {
+        "concepto": "RAP",
+        "tipo": "ahorro_publico",
+        "monto": 350.00,
+        "descripcion": "Régimen de Ahorro Público (1% sobre base de L. 35,000.00)"
+      },
+      {
+        "concepto": "ISR",
+        "tipo": "impuesto_renta",
+        "monto": 3750.00,
+        "descripcion": "Impuesto sobre la Renta calculado según tabla vigente"
+      },
+      {
+        "concepto": "Préstamo Personal",
+        "tipo": "prestamo",
+        "monto": 1500.00,
+        "descripcion": "Cuota mensual de préstamo personal"
+      }
+    ],
+    "total_bonificaciones": 3750.00,
+    "total_deducciones": 6475.00,
+    "salario_neto": 32275.00,
+    "fecha_pago": "2025-11-30",
+    "estado": "pagado",
+    "observaciones": "Nómina mensual de noviembre"
+  },
+  {
+    "id_empleado": 3,
+    "nombre_empleado": "Carlos Alberto Martínez",
+    "mes": 11,
+    "anio": 2025,
+    "periodo": "11/2025",
+    "salario_base": 18000.00,
+    "bonificaciones": [
+      {
+        "concepto": "Horas Extras",
+        "tipo": "horas_extras",
+        "monto": 2250.00,
+        "descripcion": "15 horas extras trabajadas"
+      }
+    ],
+    "deducciones": [
+      {
+        "concepto": "IHSS",
+        "tipo": "seguro_social",
+        "monto": 450.00,
+        "descripcion": "Instituto Hondureño de Seguridad Social (2.5% sobre base de L. 18,000.00)"
+      },
+      {
+        "concepto": "RAP",
+        "tipo": "ahorro_publico",
+        "monto": 180.00,
+        "descripcion": "Régimen de Ahorro Público (1% sobre base de L. 18,000.00)"
+      },
+      {
+        "concepto": "ISR",
+        "tipo": "impuesto_renta",
+        "monto": 1200.00,
+        "descripcion": "Impuesto sobre la Renta calculado según tabla vigente"
+      }
+    ],
+    "total_bonificaciones": 2250.00,
+    "total_deducciones": 1830.00,
+    "salario_neto": 18420.00,
+    "fecha_pago": "2025-11-30",
+    "estado": "pagado",
+    "observaciones": "Nómina mensual de noviembre con horas extras"
+  },
+  {
+    "id_empleado": 4,
+    "nombre_empleado": "Ana Sofía Ramírez",
+    "mes": 11,
+    "anio": 2025,
+    "periodo": "11/2025",
+    "salario_base": 42000.00,
+    "bonificaciones": [
+      {
+        "concepto": "Bono Navideño",
+        "tipo": "festivo",
+        "monto": 8400.00,
+        "descripcion": "Bono de fin de año 2025 (20% del salario base)"
+      },
+      {
+        "concepto": "Bono Puntualidad",
+        "tipo": "puntualidad",
+        "monto": 840.00,
+        "descripcion": "Sin retardos en el mes (2% del salario base)"
+      }
+    ],
+    "deducciones": [
+      {
+        "concepto": "IHSS",
+        "tipo": "seguro_social",
+        "monto": 1050.00,
+        "descripcion": "Instituto Hondureño de Seguridad Social (2.5% sobre base de L. 42,000.00)"
+      },
+      {
+        "concepto": "RAP",
+        "tipo": "ahorro_publico",
+        "monto": 420.00,
+        "descripcion": "Régimen de Ahorro Público (1% sobre base de L. 42,000.00)"
+      },
+      {
+        "concepto": "ISR",
+        "tipo": "impuesto_renta",
+        "monto": 5400.00,
+        "descripcion": "Impuesto sobre la Renta calculado según tabla vigente"
+      },
+      {
+        "concepto": "Ahorro Voluntario",
+        "tipo": "ahorro",
+        "monto": 2000.00,
+        "descripcion": "Ahorro voluntario en cuenta de ahorro"
+      }
+    ],
+    "total_bonificaciones": 9240.00,
+    "total_deducciones": 8870.00,
+    "salario_neto": 42370.00,
+    "fecha_pago": "2025-11-30",
+    "estado": "pagado",
+    "observaciones": "Nómina mensual de noviembre con bono navideño y ahorro voluntario"
+  },
+  {
+    "id_empleado": 5,
+    "nombre_empleado": "Roberto José Herrera",
+    "mes": 11,
+    "anio": 2025,
+    "periodo": "11/2025",
+    "salario_base": 15000.00,
+    "bonificaciones": [],
+    "deducciones": [
+      {
+        "concepto": "IHSS",
+        "tipo": "seguro_social",
+        "monto": 375.00,
+        "descripcion": "Instituto Hondureño de Seguridad Social (2.5% sobre base de L. 15,000.00)"
+      },
+      {
+        "concepto": "RAP",
+        "tipo": "ahorro_publico",
+        "monto": 150.00,
+        "descripcion": "Régimen de Ahorro Público (1% sobre base de L. 15,000.00)"
+      },
+      {
+        "concepto": "ISR",
+        "tipo": "impuesto_renta",
+        "monto": 750.00,
+        "descripcion": "Impuesto sobre la Renta calculado según tabla vigente"
+      },
+      {
+        "concepto": "Deducción por Ausencias",
+        "tipo": "ausencia",
+        "monto": 500.00,
+        "descripcion": "1 día de ausencia sin justificar"
+      }
+    ],
+    "total_bonificaciones": 0.00,
+    "total_deducciones": 1775.00,
+    "salario_neto": 13225.00,
+    "fecha_pago": "2025-11-30",
+    "estado": "pagado",
+    "observaciones": "Nómina mensual de noviembre con deducción por ausencia"
+  },
+  {
+    "id_empleado": 6,
+    "nombre_empleado": "Laura Patricia Vásquez",
+    "mes": 11,
+    "anio": 2025,
+    "periodo": "11/2025",
+    "salario_base": 55000.00,
+    "bonificaciones": [
+      {
+        "concepto": "Bono Navideño",
+        "tipo": "festivo",
+        "monto": 11000.00,
+        "descripcion": "Bono de fin de año 2025 (20% del salario base)"
+      },
+      {
+        "concepto": "Bono Antigüedad",
+        "tipo": "antigüedad",
+        "monto": 2750.00,
+        "descripcion": "Bono por 10 años de servicio (5% del salario base)"
+      },
+      {
+        "concepto": "Bono Productividad",
+        "tipo": "productividad",
+        "monto": 5500.00,
+        "descripcion": "Bono por superación de metas del mes (10% del salario base)"
+      }
+    ],
+    "deducciones": [
+      {
+        "concepto": "IHSS",
+        "tipo": "seguro_social",
+        "monto": 1250.00,
+        "descripcion": "Instituto Hondureño de Seguridad Social (2.5% sobre base máxima de L. 50,000.00)"
+      },
+      {
+        "concepto": "RAP",
+        "tipo": "ahorro_publico",
+        "monto": 500.00,
+        "descripcion": "Régimen de Ahorro Público (1% sobre base máxima de L. 50,000.00)"
+      },
+      {
+        "concepto": "ISR",
+        "tipo": "impuesto_renta",
+        "monto": 10125.00,
+        "descripcion": "Impuesto sobre la Renta calculado según tabla vigente"
+      },
+      {
+        "concepto": "Seguro de Vida",
+        "tipo": "seguro",
+        "monto": 500.00,
+        "descripcion": "Seguro de vida grupal"
+      }
+    ],
+    "total_bonificaciones": 19250.00,
+    "total_deducciones": 12375.00,
+    "salario_neto": 61875.00,
+    "fecha_pago": "2025-11-30",
+    "estado": "pagado",
+    "observaciones": "Nómina mensual de noviembre con múltiples bonificaciones"
+  },
+  {
+    "id_empleado": 7,
+    "nombre_empleado": "José Miguel López",
+    "mes": 11,
+    "anio": 2025,
+    "periodo": "11/2025",
+    "salario_base": 22000.00,
+    "bonificaciones": [
+      {
+        "concepto": "Horas Extras",
+        "tipo": "horas_extras",
+        "monto": 3300.00,
+        "descripcion": "22 horas extras trabajadas"
+      }
+    ],
+    "deducciones": [
+      {
+        "concepto": "IHSS",
+        "tipo": "seguro_social",
+        "monto": 550.00,
+        "descripcion": "Instituto Hondureño de Seguridad Social (2.5% sobre base de L. 22,000.00)"
+      },
+      {
+        "concepto": "RAP",
+        "tipo": "ahorro_publico",
+        "monto": 220.00,
+        "descripcion": "Régimen de Ahorro Público (1% sobre base de L. 22,000.00)"
+      },
+      {
+        "concepto": "ISR",
+        "tipo": "impuesto_renta",
+        "monto": 1800.00,
+        "descripcion": "Impuesto sobre la Renta calculado según tabla vigente"
+      }
+    ],
+    "total_bonificaciones": 3300.00,
+    "total_deducciones": 2570.00,
+    "salario_neto": 22730.00,
+    "fecha_pago": "2025-11-30",
+    "estado": "pagado",
+    "observaciones": "Nómina mensual de noviembre con horas extras"
+  },
+  {
+    "id_empleado": 8,
+    "nombre_empleado": "Karla Beatriz Mejía",
+    "mes": 11,
+    "anio": 2025,
+    "periodo": "11/2025",
+    "salario_base": 28000.00,
+    "bonificaciones": [
+      {
+        "concepto": "Bono Navideño",
+        "tipo": "festivo",
+        "monto": 5600.00,
+        "descripcion": "Bono de fin de año 2025 (20% del salario base)"
+      }
+    ],
+    "deducciones": [
+      {
+        "concepto": "IHSS",
+        "tipo": "seguro_social",
+        "monto": 700.00,
+        "descripcion": "Instituto Hondureño de Seguridad Social (2.5% sobre base de L. 28,000.00)"
+      },
+      {
+        "concepto": "RAP",
+        "tipo": "ahorro_publico",
+        "monto": 280.00,
+        "descripcion": "Régimen de Ahorro Público (1% sobre base de L. 28,000.00)"
+      },
+      {
+        "concepto": "ISR",
+        "tipo": "impuesto_renta",
+        "monto": 2700.00,
+        "descripcion": "Impuesto sobre la Renta calculado según tabla vigente"
+      },
+      {
+        "concepto": "Préstamo Personal",
+        "tipo": "prestamo",
+        "monto": 1000.00,
+        "descripcion": "Cuota mensual de préstamo personal"
+      }
+    ],
+    "total_bonificaciones": 5600.00,
+    "total_deducciones": 4680.00,
+    "salario_neto": 28920.00,
+    "fecha_pago": "2025-11-30",
+    "estado": "pagado",
+    "observaciones": "Nómina mensual de noviembre con bono navideño"
+  }
+]
+
