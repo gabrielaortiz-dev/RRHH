@@ -1,9 +1,9 @@
 """
 Servidor FastAPI principal para el Sistema de RRHH
 """
-from fastapi import FastAPI, HTTPException, Depends, status, Request
+from fastapi import FastAPI, HTTPException, Depends, status, Request, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse, FileResponse
 from typing import List, Optional
 from contextlib import asynccontextmanager
 import uvicorn
@@ -12,6 +12,9 @@ import bcrypt
 import time
 import logging
 import sqlite3
+import os
+import shutil
+from pathlib import Path
 
 from database import get_db, Database
 from nomina_calculator import calcular_nomina_mensual, calcular_nomina_empleado
@@ -4580,9 +4583,11 @@ async def crear_vacacion(vacacion: VacacionPermisoCreate, db: Database = Depends
 async def listar_documentos(
     id_empleado: Optional[int] = None,
     tipo_documento: Optional[str] = None,
+    categoria: Optional[str] = None,
+    buscar: Optional[str] = None,
     db: Database = Depends(get_db)
 ):
-    """Listar documentos con manejo robusto de JOINs"""
+    """Listar documentos con manejo robusto de JOINs y filtros de búsqueda"""
     try:
         # Verificar que la conexión a la base de datos esté activa
         if not db.connection:
@@ -4608,6 +4613,13 @@ async def listar_documentos(
             if tipo_documento:
                 query += " AND d.tipo_documento = ?"
                 params.append(tipo_documento)
+            if categoria:
+                query += " AND d.categoria = ?"
+                params.append(categoria)
+            if buscar:
+                query += " AND (d.nombre_original LIKE ? OR d.nombre_archivo LIKE ? OR d.descripcion LIKE ? OR d.tipo_documento LIKE ?)"
+                search_term = f"%{buscar}%"
+                params.extend([search_term, search_term, search_term, search_term])
             
             query += " ORDER BY d.fecha_subida DESC"
             
@@ -4629,6 +4641,13 @@ async def listar_documentos(
                 if tipo_documento:
                     query += " AND d.tipo_documento = ?"
                     params.append(tipo_documento)
+                if categoria:
+                    query += " AND d.categoria = ?"
+                    params.append(categoria)
+                if buscar:
+                    query += " AND (d.nombre_original LIKE ? OR d.nombre_archivo LIKE ? OR d.descripcion LIKE ? OR d.tipo_documento LIKE ?)"
+                    search_term = f"%{buscar}%"
+                    params.extend([search_term, search_term, search_term, search_term])
                 
                 query += " ORDER BY d.fecha_subida DESC"
                 
@@ -4655,6 +4674,301 @@ async def listar_documentos(
         raise HTTPException(
             status_code=500, 
             detail=f"Error al obtener documentos: {str(e)}"
+        )
+
+@app.post("/api/documentos/upload", response_model=dict, status_code=201)
+async def subir_documento(
+    file: UploadFile = File(...),
+    id_empleado: int = Form(...),
+    tipo_documento: str = Form(...),
+    categoria: Optional[str] = Form(None),
+    descripcion: Optional[str] = Form(None),
+    fecha_expiracion: Optional[str] = Form(None),
+    usuario_id: Optional[int] = Form(None),
+    current_user: dict = Depends(get_current_user_optional),
+    db: Database = Depends(get_db)
+):
+    """
+    Subir un documento asociado a un empleado.
+    Valida tipo de archivo (PDF, DOCX, JPG, PNG) y tamaño máximo (10MB).
+    """
+    try:
+        # Log de debug para ver qué está recibiendo
+        logger.info(f"Recibiendo documento: file={file.filename if file else None}, id_empleado={id_empleado}, tipo_documento={tipo_documento}")
+        logger.info(f"Categoría: {categoria}, Descripción: {descripcion}, Usuario ID: {usuario_id}")
+        
+        # Validar campos requeridos antes de procesar
+        if not file or not file.filename:
+            logger.error("Error: Archivo no recibido o sin nombre")
+            raise HTTPException(
+                status_code=400,
+                detail="El archivo es requerido"
+            )
+        
+        if not id_empleado or id_empleado <= 0:
+            logger.error(f"Error: ID de empleado inválido: {id_empleado}")
+            raise HTTPException(
+                status_code=400,
+                detail="El ID del empleado es requerido y debe ser mayor a 0"
+            )
+        
+        if not tipo_documento or not tipo_documento.strip():
+            logger.error(f"Error: Tipo de documento vacío o inválido: {tipo_documento}")
+            raise HTTPException(
+                status_code=400,
+                detail="El tipo de documento es requerido"
+            )
+        
+        # Verificar que la conexión a la base de datos esté activa
+        if not db.connection:
+            db.connect()
+        
+        # Validar tipo de archivo
+        ALLOWED_EXTENSIONS = {'.pdf', '.doc', '.docx', '.jpg', '.jpeg', '.png'}
+        ALLOWED_MIME_TYPES = {
+            'application/pdf',
+            'application/msword',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'image/jpeg',
+            'image/jpg',
+            'image/png'
+        }
+        
+        # Obtener extensión del archivo
+        file_extension = Path(file.filename).suffix.lower() if file.filename else ''
+        
+        # Validar extensión
+        if file_extension not in ALLOWED_EXTENSIONS:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Tipo de archivo no permitido. Solo se permiten: PDF, DOC, DOCX, JPG, PNG"
+            )
+        
+        # Validar MIME type
+        if file.content_type not in ALLOWED_MIME_TYPES:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Tipo MIME no permitido: {file.content_type}"
+            )
+        
+        # Validar tamaño máximo (10 MB)
+        MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB en bytes
+        file_content = await file.read()
+        file_size = len(file_content)
+        
+        if file_size > MAX_FILE_SIZE:
+            raise HTTPException(
+                status_code=400,
+                detail=f"El archivo excede el tamaño máximo permitido de 10 MB. Tamaño actual: {file_size / (1024*1024):.2f} MB"
+            )
+        
+        # Verificar que el empleado existe
+        empleado = db.fetch_one(
+            "SELECT id_empleado, nombre, apellido FROM Empleados WHERE id_empleado = ?",
+            (id_empleado,)
+        )
+        
+        if not empleado:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Empleado con ID {id_empleado} no encontrado"
+            )
+        
+        # Obtener usuario actual si no se proporciona
+        if not usuario_id and current_user:
+            usuario_id = current_user.get('id')
+        
+        # Crear directorio de uploads si no existe
+        uploads_dir = Path(__file__).parent / "uploads"
+        uploads_dir.mkdir(exist_ok=True)
+        
+        # Generar nombre único para el archivo
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        safe_filename = "".join(c for c in file.filename if c.isalnum() or c in "._- ")
+        file_name = f"{timestamp}_{safe_filename}"
+        file_path = uploads_dir / file_name
+        
+        # Guardar archivo en el servidor
+        with open(file_path, "wb") as buffer:
+            buffer.write(file_content)
+        
+        # Obtener nombre del empleado
+        nombre_empleado = f"{empleado['nombre']} {empleado['apellido']}"
+        
+        # Insertar registro en la base de datos
+        cursor = db.execute_query("""
+            INSERT INTO Documentos (
+                id_empleado, nombre_empleado, nombre_archivo, nombre_original,
+                tipo_documento, categoria, ruta_archivo, tamano_bytes, mime_type,
+                fecha_expiracion, estado, subido_por, descripcion
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            id_empleado,
+            nombre_empleado,
+            file_name,
+            file.filename,
+            tipo_documento,
+            categoria,
+            str(file_path),
+            file_size,
+            file.content_type,
+            fecha_expiracion,
+            'activo',
+            usuario_id,
+            descripcion
+        ))
+        
+        # Obtener el documento recién creado
+        documento_creado = db.fetch_one("""
+            SELECT 
+                d.*,
+                COALESCE(e.nombre || ' ' || e.apellido, 'Empleado no encontrado') as nombre_empleado
+            FROM Documentos d
+            LEFT JOIN Empleados e ON d.id_empleado = e.id_empleado
+            WHERE d.id_documento = ?
+        """, (cursor.lastrowid,))
+        
+        if not documento_creado:
+            # Fallback sin JOIN
+            documento_creado = db.fetch_one(
+                "SELECT * FROM Documentos WHERE id_documento = ?",
+                (cursor.lastrowid,)
+            )
+            if documento_creado:
+                documento_creado['nombre_empleado'] = nombre_empleado
+        
+        return {
+            "success": True,
+            "message": "Documento subido exitosamente",
+            "data": documento_creado
+        }
+        
+    except HTTPException:
+        raise
+    except ValueError as e:
+        # Errores de validación de tipos
+        logger.error(f"Error de validación al subir documento: {str(e)}")
+        raise HTTPException(
+            status_code=400,
+            detail=f"Error de validación: {str(e)}"
+        )
+    except Exception as e:
+        logger.error(f"Error al subir documento: {str(e)}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error al subir documento: {str(e)}"
+        )
+
+@app.get("/api/documentos/{documento_id}/download")
+async def descargar_documento(
+    documento_id: int,
+    db: Database = Depends(get_db)
+):
+    """
+    Descargar un documento por su ID.
+    Retorna el archivo como respuesta de descarga.
+    """
+    try:
+        # Verificar que la conexión a la base de datos esté activa
+        if not db.connection:
+            db.connect()
+        
+        # Obtener el documento de la base de datos
+        documento = db.fetch_one(
+            "SELECT * FROM Documentos WHERE id_documento = ?",
+            (documento_id,)
+        )
+        
+        if not documento:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Documento con ID {documento_id} no encontrado"
+            )
+        
+        # Obtener ruta del archivo
+        file_path = Path(documento['ruta_archivo'])
+        
+        # Verificar que el archivo existe
+        if not file_path.exists():
+            raise HTTPException(
+                status_code=404,
+                detail=f"El archivo físico no existe en el servidor"
+            )
+        
+        # Retornar el archivo como respuesta de descarga
+        return FileResponse(
+            path=str(file_path),
+            filename=documento['nombre_original'] or documento['nombre_archivo'],
+            media_type=documento.get('mime_type', 'application/octet-stream')
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error al descargar documento: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error al descargar documento: {str(e)}"
+        )
+
+@app.delete("/api/documentos/{documento_id}", response_model=dict)
+async def eliminar_documento(
+    documento_id: int,
+    current_user: dict = Depends(get_current_user_optional),
+    db: Database = Depends(get_db)
+):
+    """
+    Eliminar un documento por su ID.
+    Elimina tanto el registro de la base de datos como el archivo físico.
+    """
+    try:
+        # Verificar que la conexión a la base de datos esté activa
+        if not db.connection:
+            db.connect()
+        
+        # Obtener el documento de la base de datos
+        documento = db.fetch_one(
+            "SELECT * FROM Documentos WHERE id_documento = ?",
+            (documento_id,)
+        )
+        
+        if not documento:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Documento con ID {documento_id} no encontrado"
+            )
+        
+        # Obtener ruta del archivo
+        file_path = Path(documento['ruta_archivo'])
+        
+        # Eliminar el archivo físico si existe
+        if file_path.exists():
+            try:
+                file_path.unlink()
+                logger.info(f"Archivo físico eliminado: {file_path}")
+            except Exception as e:
+                logger.warning(f"No se pudo eliminar el archivo físico: {str(e)}")
+        
+        # Eliminar el registro de la base de datos
+        db.execute_query(
+            "DELETE FROM Documentos WHERE id_documento = ?",
+            (documento_id,)
+        )
+        
+        return {
+            "success": True,
+            "message": "Documento eliminado exitosamente"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error al eliminar documento: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error al eliminar documento: {str(e)}"
         )
 
 # ============================================================================
