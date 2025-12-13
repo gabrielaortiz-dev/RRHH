@@ -212,6 +212,7 @@ class Database:
                 CREATE TABLE IF NOT EXISTS asistencias (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     empleado_id INTEGER NOT NULL,
+                    nombre_empleado VARCHAR(200),
                     fecha DATE NOT NULL,
                     hora_entrada TIME,
                     hora_salida TIME,
@@ -280,6 +281,7 @@ class Database:
                 CREATE TABLE IF NOT EXISTS Contratos (
                     id_contrato INTEGER PRIMARY KEY AUTOINCREMENT,
                     id_empleado INTEGER NOT NULL,
+                    nombre_empleado VARCHAR(200),
                     
                     -- Datos del Empleador
                     empresa_nombre VARCHAR(200),
@@ -375,6 +377,7 @@ class Database:
                 columnas_existentes = [col[1] for col in cursor.fetchall()]
                 
                 nuevas_columnas = [
+                    ("nombre_empleado", "VARCHAR(200)"),
                     ("empresa_nombre", "VARCHAR(200)"),
                     ("empresa_representante_legal", "VARCHAR(200)"),
                     ("empresa_rtn", "VARCHAR(50)"),
@@ -446,6 +449,7 @@ class Database:
                 CREATE TABLE IF NOT EXISTS Asistencias (
                     id_asistencia INTEGER PRIMARY KEY AUTOINCREMENT,
                     id_empleado INTEGER,
+                    nombre_empleado VARCHAR(200),
                     fecha DATE,
                     hora_entrada TIME,
                     hora_salida TIME,
@@ -459,6 +463,7 @@ class Database:
                 CREATE TABLE IF NOT EXISTS Capacitaciones (
                     id_capacitacion INTEGER PRIMARY KEY AUTOINCREMENT,
                     id_empleado INTEGER,
+                    nombre_empleado VARCHAR(200),
                     nombre_curso VARCHAR(100),
                     institucion VARCHAR(100),
                     fecha_inicio DATE,
@@ -473,6 +478,7 @@ class Database:
                 CREATE TABLE IF NOT EXISTS Evaluaciones (
                     id_evaluacion INTEGER PRIMARY KEY AUTOINCREMENT,
                     id_empleado INTEGER,
+                    nombre_empleado VARCHAR(200),
                     fecha DATE,
                     evaluador VARCHAR(100),
                     puntaje INTEGER,
@@ -486,6 +492,7 @@ class Database:
                 CREATE TABLE IF NOT EXISTS Nomina (
                     id_nomina INTEGER PRIMARY KEY AUTOINCREMENT,
                     id_empleado INTEGER,
+                    nombre_empleado VARCHAR(200),
                     mes INTEGER NOT NULL,
                     anio INTEGER NOT NULL,
                     periodo TEXT NOT NULL,
@@ -602,6 +609,7 @@ class Database:
                 CREATE TABLE IF NOT EXISTS Vacaciones_Permisos (
                     id_permiso INTEGER PRIMARY KEY AUTOINCREMENT,
                     id_empleado INTEGER NOT NULL,
+                    nombre_empleado VARCHAR(200),
                     tipo VARCHAR(50) NOT NULL,
                     fecha_solicitud DATE DEFAULT CURRENT_DATE,
                     fecha_inicio DATE NOT NULL,
@@ -663,6 +671,7 @@ class Database:
                 CREATE TABLE IF NOT EXISTS Documentos (
                     id_documento INTEGER PRIMARY KEY AUTOINCREMENT,
                     id_empleado INTEGER,
+                    nombre_empleado VARCHAR(200),
                     nombre_archivo VARCHAR(255) NOT NULL,
                     nombre_original VARCHAR(255) NOT NULL,
                     tipo_documento VARCHAR(50) NOT NULL,
@@ -1025,6 +1034,93 @@ class Database:
                 print("[OK] Permisos asignados a roles")
             except Exception as e:
                 print(f"[INFO] Error al asignar permisos a roles: {e}")
+            
+            # Migración: Agregar columna nombre_empleado a todas las tablas que la necesitan
+            try:
+                tablas_con_empleado = [
+                    ("Contratos", "id_empleado"),
+                    ("Asistencias", "id_empleado"),
+                    ("asistencias", "empleado_id"),
+                    ("Nomina", "id_empleado"),
+                    ("Vacaciones_Permisos", "id_empleado"),
+                    ("Capacitaciones", "id_empleado"),
+                    ("Evaluaciones", "id_empleado"),
+                    ("Documentos", "id_empleado")
+                ]
+                
+                for tabla, columna_id in tablas_con_empleado:
+                    try:
+                        # Verificar si la tabla existe
+                        cursor = self.connection.cursor()
+                        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?", (tabla,))
+                        if cursor.fetchone():
+                            # Verificar si la columna nombre_empleado ya existe
+                            cursor.execute(f"PRAGMA table_info({tabla})")
+                            columnas_existentes = [col[1] for col in cursor.fetchall()]
+                            
+                            if "nombre_empleado" not in columnas_existentes:
+                                # Agregar la columna
+                                self.execute_query(f"ALTER TABLE {tabla} ADD COLUMN nombre_empleado VARCHAR(200)")
+                                print(f"[OK] Columna nombre_empleado agregada a tabla {tabla}")
+                                
+                                # Actualizar registros existentes con el nombre del empleado
+                                try:
+                                    if tabla == "asistencias":
+                                        # Para la tabla asistencias (minúscula) usar empleado_id
+                                        # Intentar primero con tabla empleados (minúscula)
+                                        try:
+                                            self.execute_query(f"""
+                                                UPDATE {tabla} 
+                                                SET nombre_empleado = (
+                                                    SELECT nombre || ' ' || apellido 
+                                                    FROM empleados 
+                                                    WHERE empleados.id = {tabla}.empleado_id
+                                                )
+                                                WHERE nombre_empleado IS NULL AND empleado_id IS NOT NULL
+                                            """)
+                                        except Exception:
+                                            # Si falla, intentar con tabla Empleados (mayúscula)
+                                            self.execute_query(f"""
+                                                UPDATE {tabla} 
+                                                SET nombre_empleado = (
+                                                    SELECT nombre || ' ' || apellido 
+                                                    FROM Empleados 
+                                                    WHERE Empleados.id_empleado = {tabla}.empleado_id
+                                                )
+                                                WHERE nombre_empleado IS NULL AND empleado_id IS NOT NULL
+                                            """)
+                                    else:
+                                        # Para las demás tablas usar id_empleado
+                                        # Intentar primero con tabla Empleados (mayúscula)
+                                        try:
+                                            self.execute_query(f"""
+                                                UPDATE {tabla} 
+                                                SET nombre_empleado = (
+                                                    SELECT nombre || ' ' || apellido 
+                                                    FROM Empleados 
+                                                    WHERE Empleados.id_empleado = {tabla}.{columna_id}
+                                                )
+                                                WHERE nombre_empleado IS NULL AND {columna_id} IS NOT NULL
+                                            """)
+                                        except Exception:
+                                            # Si falla, intentar con tabla empleados (minúscula) usando id
+                                            self.execute_query(f"""
+                                                UPDATE {tabla} 
+                                                SET nombre_empleado = (
+                                                    SELECT nombre || ' ' || apellido 
+                                                    FROM empleados 
+                                                    WHERE empleados.id = {tabla}.{columna_id}
+                                                )
+                                                WHERE nombre_empleado IS NULL AND {columna_id} IS NOT NULL
+                                            """)
+                                    print(f"[OK] Registros existentes actualizados en tabla {tabla}")
+                                except Exception as e:
+                                    print(f"[INFO] No se pudieron actualizar registros en {tabla}: {str(e)}")
+                    except Exception as e:
+                        # Ignorar errores en tablas que no existen o ya tienen la columna
+                        pass
+            except Exception as e:
+                print(f"[INFO] Error en migración de nombre_empleado: {e}")
             
             print("[OK] Tablas creadas exitosamente")
             

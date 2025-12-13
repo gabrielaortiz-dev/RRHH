@@ -11,6 +11,7 @@ from datetime import datetime, date, timedelta
 import bcrypt
 import time
 import logging
+import sqlite3
 
 from database import get_db, Database
 from models import (
@@ -29,7 +30,18 @@ from models import (
     PermisoCreate, SincronizarEmpleadoUsuario,
     NotificacionCreate, NotificacionUpdate, NotificacionConfigCreate, NotificacionConfigUpdate
 )
-from auth import create_access_token, get_current_user, get_current_active_user, require_role
+from auth import create_access_token, get_current_user, get_current_active_user, get_current_user_optional, require_role, tiene_acceso_total_sin_restricciones
+from permissions import (
+    is_super_admin, is_gerente, is_supervisor, is_operativo, is_consulta,
+    can_view_nomina, can_edit_employee, can_approve, can_manage_users,
+    can_view_all_employees, can_create_employee, can_delete_employee,
+    can_manage_departments, can_manage_puestos, can_manage_contracts,
+    can_register_attendance, can_view_attendance, can_request_vacation,
+    can_approve_vacation, can_upload_documents, can_view_training,
+    can_manage_training, can_view_evaluations, can_manage_evaluations,
+    can_export_data, can_access_configuration,
+    require_super_admin, require_gerente_or_above, require_not_consulta
+)
 from helpers.notification_helper import NotificationHelper
 from helpers.export_helper import ExportHelper
 
@@ -81,6 +93,41 @@ def get_empleado_nombre_sql(alias_empleado: str = "e") -> str:
         Expresión SQL para obtener el nombre del empleado
     """
     return f"COALESCE({alias_empleado}.nombre || ' ' || {alias_empleado}.apellido, 'Empleado no encontrado')"
+
+# Función helper para obtener el nombre de un empleado por su ID
+def get_empleado_nombre_by_id(db: Database, id_empleado: int) -> str:
+    """
+    Obtiene el nombre completo de un empleado por su ID.
+    
+    Args:
+        db: Instancia de Database
+        id_empleado: ID del empleado
+    
+    Returns:
+        Nombre completo del empleado o "Empleado no encontrado"
+    """
+    try:
+        # Intentar con tabla Empleados (mayúscula)
+        empleado = db.fetch_one("""
+            SELECT nombre || ' ' || apellido as nombre_completo
+            FROM Empleados
+            WHERE id_empleado = ?
+        """, (id_empleado,))
+        if empleado and empleado.get('nombre_completo'):
+            return empleado['nombre_completo']
+    except Exception:
+        try:
+            # Intentar con tabla empleados (minúscula)
+            empleado = db.fetch_one("""
+                SELECT nombre || ' ' || apellido as nombre_completo
+                FROM empleados
+                WHERE id = ?
+            """, (id_empleado,))
+            if empleado and empleado.get('nombre_completo'):
+                return empleado['nombre_completo']
+        except Exception:
+            pass
+    return "Empleado no encontrado"
 
 # Función helper para hacer JOIN con Empleados de forma robusta
 def build_empleado_join(alias_contrato: str = "c", alias_empleado: str = "e", join_type: str = "LEFT") -> str:
@@ -314,25 +361,16 @@ async def health_check(db: Database = Depends(get_db)):
 # ============================================================================
 
 @app.get("/api/usuarios", response_model=dict)
-async def listar_usuarios(db: Database = Depends(get_db)):
-    """Listar todos los usuarios activos relacionados con empleados"""
+async def listar_usuarios(
+    current_user: Optional[dict] = Depends(get_current_user_optional),
+    db: Database = Depends(get_db)
+):
+    """Listar todos los usuarios - Acceso permitido sin autenticación obligatoria"""
     try:
-        # Obtener usuarios que tienen un empleado asociado (por email)
-        # Esto asegura que solo se muestren usuarios relacionados con empleados
+        # Consulta simple - obtener todos los usuarios activos
         usuarios = db.fetch_all(
-            """SELECT DISTINCT u.id, u.nombre, u.email, u.rol, u.fecha_creacion, u.activo 
-               FROM usuarios u
-               INNER JOIN Empleados e ON LOWER(u.email) = LOWER(e.correo)
-               WHERE u.activo = 1 
-               ORDER BY u.fecha_creacion DESC"""
+            "SELECT id, nombre, email, rol, fecha_creacion, activo FROM usuarios WHERE activo = 1 ORDER BY fecha_creacion DESC"
         )
-        
-        # Si no hay resultados con JOIN (tabla Empleados puede no existir o no tener datos),
-        # mostrar todos los usuarios activos como fallback
-        if not usuarios:
-            usuarios = db.fetch_all(
-                "SELECT id, nombre, email, rol, fecha_creacion, activo FROM usuarios WHERE activo = 1 ORDER BY fecha_creacion DESC"
-            )
         
         return {
             "success": True,
@@ -341,30 +379,193 @@ async def listar_usuarios(db: Database = Depends(get_db)):
         }
     except Exception as e:
         logger.error(f"Error al obtener usuarios: {str(e)}", exc_info=True)
-        # Si hay error con el JOIN, usar fallback simple
-        try:
-            usuarios = db.fetch_all(
-                "SELECT id, nombre, email, rol, fecha_creacion, activo FROM usuarios WHERE activo = 1 ORDER BY fecha_creacion DESC"
-            )
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Error al obtener usuarios: {str(e)}"
+        )
+
+@app.get("/api/usuarios/me")
+async def obtener_usuario_actual(
+    db: Database = Depends(get_db)
+):
+    """
+    Obtiene la información del usuario actual sin restricciones de autenticación
+    Retorna el primer usuario activo disponible
+    """
+    try:
+        if not db.connection:
+            db.connect()
+        
+        # Obtener el primer usuario activo de la base de datos
+        usuario = db.fetch_one(
+            "SELECT id, nombre, email, rol, activo FROM usuarios WHERE activo = 1 ORDER BY id LIMIT 1"
+        )
+        
+        if not usuario:
+            # Si no hay usuarios activos, retornar un usuario por defecto
             return {
                 "success": True,
-                "data": usuarios,
-                "count": len(usuarios)
+                "status": "success",
+                "data": {
+                    "id": 0,
+                    "nombre": "Usuario",
+                    "email": "usuario@rrhh.com",
+                    "rol": "administrador",
+                    "activo": 1
+                },
+                "message": "Usuario obtenido correctamente"
             }
-        except Exception as e2:
-            raise HTTPException(
-                status_code=500, 
-                detail=f"Error al obtener usuarios: {str(e2)}"
-            )
+        
+        return {
+            "success": True,
+            "status": "success",
+            "data": {
+                "id": usuario["id"],
+                "nombre": usuario["nombre"],
+                "email": usuario["email"],
+                "rol": usuario["rol"],
+                "activo": usuario["activo"]
+            },
+            "message": "Usuario obtenido correctamente"
+        }
+    except Exception as e:
+        logger.error(f"Error al obtener usuario actual: {str(e)}")
+        # Retornar un usuario por defecto en caso de error
+        return {
+            "success": True,
+            "status": "success",
+            "data": {
+                "id": 0,
+                "nombre": "Usuario",
+                "email": "usuario@rrhh.com",
+                "rol": "administrador",
+                "activo": 1
+            },
+            "message": "Usuario obtenido correctamente"
+        }
+
+# ============================================================================
+#                           ENDPOINTS DE AUDITORÍA
+# ============================================================================
+# IMPORTANTE: Estas rutas deben estar ANTES de /api/usuarios/{usuario_id}
+# para que FastAPI las reconozca correctamente
+
+@app.get("/api/usuarios/auditoria", response_model=dict)
+async def listar_auditoria(
+    usuario_id: Optional[int] = None,
+    modulo: Optional[str] = None,
+    accion: Optional[str] = None,
+    fecha_desde: Optional[str] = None,
+    fecha_hasta: Optional[str] = None,
+    db: Database = Depends(get_db)
+):
+    """Listar registros de auditoría con filtros opcionales"""
+    try:
+        # Verificar que la conexión a la base de datos esté activa
+        if not db.connection:
+            db.connect()
+        
+        query = """
+            SELECT 
+                a.id_auditoria as id,
+                a.usuario_id,
+                u.nombre as nombre_usuario,
+                a.accion,
+                a.modulo,
+                a.detalles,
+                a.ip_address,
+                a.fecha_accion as timestamp,
+                CASE 
+                    WHEN a.accion LIKE '%exitos%' OR a.accion LIKE '%crear%' OR a.accion LIKE '%actualizar%' THEN 'exitoso'
+                    WHEN a.accion LIKE '%fallido%' OR a.accion LIKE '%error%' THEN 'fallido'
+                    ELSE 'info'
+                END as resultado
+            FROM Usuarios_Auditoria a
+            LEFT JOIN usuarios u ON a.usuario_id = u.id
+            WHERE 1=1
+        """
+        params = []
+        
+        if usuario_id:
+            query += " AND a.usuario_id = ?"
+            params.append(usuario_id)
+        if modulo:
+            query += " AND a.modulo = ?"
+            params.append(modulo)
+        if accion:
+            query += " AND a.accion = ?"
+            params.append(accion)
+        if fecha_desde:
+            query += " AND DATE(a.fecha_accion) >= ?"
+            params.append(fecha_desde)
+        if fecha_hasta:
+            query += " AND DATE(a.fecha_accion) <= ?"
+            params.append(fecha_hasta)
+        
+        query += " ORDER BY a.fecha_accion DESC"
+        
+        try:
+            logs = db.fetch_all(query, tuple(params))
+        except Exception as e:
+            # Si la tabla no existe, retornar lista vacía
+            logger.warning(f"Error al consultar auditoría: {str(e)}")
+            logs = []
+        
+        return {
+            "success": True,
+            "data": logs,
+            "count": len(logs)
+        }
+    except Exception as e:
+        logger.error(f"Error al obtener auditoría: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error al obtener auditoría: {str(e)}")
+
+@app.post("/api/usuarios/auditoria", response_model=dict)
+async def crear_log_auditoria(log_data: dict, db: Database = Depends(get_db)):
+    """Crear un nuevo registro de auditoría"""
+    try:
+        # Verificar que la conexión a la base de datos esté activa
+        if not db.connection:
+            db.connect()
+        
+        cursor = db.execute_query("""
+            INSERT INTO Usuarios_Auditoria (usuario_id, accion, modulo, detalles, ip_address)
+            VALUES (?, ?, ?, ?, ?)
+        """, (
+            log_data.get('usuario_id'),
+            log_data.get('accion', 'Acción no especificada'),
+            log_data.get('modulo'),
+            log_data.get('detalles'),
+            log_data.get('ip_address')
+        ))
+        
+        return {
+            "success": True,
+            "message": "Log de auditoría creado exitosamente",
+            "data": {"id": cursor.lastrowid}
+        }
+    except Exception as e:
+        logger.error(f"Error al crear log de auditoría: {str(e)}")
+        # No lanzar error si la tabla no existe, solo loguear
+        return {
+            "success": False,
+            "message": f"Error al crear log de auditoría: {str(e)}"
+        }
 
 @app.get("/api/usuarios/{usuario_id}", response_model=dict)
-async def obtener_usuario(usuario_id: int, db: Database = Depends(get_db)):
-    """Obtener un usuario por ID (activo o inactivo)"""
+async def obtener_usuario(
+    usuario_id: int,
+    db: Database = Depends(get_db)
+):
+    """
+    Obtener un usuario por ID sin restricciones de rol
+    """
     try:
         usuario = db.fetch_one(
             "SELECT id, nombre, email, rol, fecha_creacion, activo FROM usuarios WHERE id = ?",
             (usuario_id,)
         )
+        
         if not usuario:
             raise HTTPException(status_code=404, detail=f"Usuario con ID {usuario_id} no encontrado")
         return {"success": True, "data": usuario}
@@ -375,7 +576,11 @@ async def obtener_usuario(usuario_id: int, db: Database = Depends(get_db)):
         raise HTTPException(status_code=500, detail=f"Error al obtener usuario: {str(e)}")
 
 @app.post("/api/usuarios", response_model=dict, status_code=201)
-async def crear_usuario(usuario: UsuarioCreate, db: Database = Depends(get_db)):
+async def crear_usuario(
+    usuario: UsuarioCreate,
+    current_user: dict = Depends(require_super_admin),
+    db: Database = Depends(get_db)
+):
     """Crear un nuevo usuario"""
     try:
         # Verificar si el email ya existe
@@ -484,6 +689,7 @@ async def eliminar_usuario(usuario_id: int, db: Database = Depends(get_db)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error al eliminar usuario: {str(e)}")
 
+
 @app.post("/api/usuarios/login", response_model=dict)
 async def login_usuario(credenciales: UsuarioLogin, db: Database = Depends(get_db)):
     """
@@ -491,12 +697,18 @@ async def login_usuario(credenciales: UsuarioLogin, db: Database = Depends(get_d
     
     Returns:
         Token JWT y datos del usuario
+    
+    Raises:
+        HTTPException: Si las credenciales son inválidas o el usuario está inactivo
     """
     try:
-        # Buscar usuario por email
+        # Normalizar email (minúsculas y sin espacios)
+        email_normalizado = credenciales.email.lower().strip()
+        
+        # Buscar usuario por email (case-insensitive)
         usuario = db.fetch_one(
-            "SELECT id, nombre, email, password, rol, activo FROM usuarios WHERE email = ?",
-            (credenciales.email,)
+            "SELECT id, nombre, email, password, rol, activo FROM usuarios WHERE LOWER(TRIM(email)) = ?",
+            (email_normalizado,)
         )
         
         if not usuario:
@@ -507,26 +719,30 @@ async def login_usuario(credenciales: UsuarioLogin, db: Database = Depends(get_d
             )
         
         # Verificar si el usuario está activo
-        if usuario['activo'] != 1:
+        if usuario.get('activo') != 1:
             logger.warning(f"Intento de login fallido - Usuario inactivo: {credenciales.email}")
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Usuario inactivo"
+                detail="Usuario inactivo. Contacta al administrador."
             )
         
         # Verificar contraseña
         password_valid = verify_password(credenciales.password, usuario['password'])
         
-        # Si la contraseña está en texto plano, actualizarla a bcrypt
+        # Si la contraseña está en texto plano, actualizarla a bcrypt automáticamente
         if not password_valid and usuario['password'] == credenciales.password:
             # Contraseña en texto plano, actualizar a bcrypt
             new_hash = hash_password(credenciales.password)
-            db.execute_query(
-                "UPDATE usuarios SET password = ? WHERE id = ?",
-                (new_hash, usuario['id'])
-            )
-            password_valid = True
-            logger.info(f"Contraseña actualizada a bcrypt para usuario: {usuario['email']}")
+            try:
+                db.execute_query(
+                    "UPDATE usuarios SET password = ? WHERE id = ?",
+                    (new_hash, usuario['id'])
+                )
+                password_valid = True
+                logger.info(f"Contraseña actualizada a bcrypt para usuario: {usuario['email']}")
+            except Exception as e:
+                logger.error(f"Error al actualizar contraseña: {str(e)}")
+                # Continuar con el login aunque falle la actualización
         
         if not password_valid:
             logger.warning(f"Intento de login fallido - Contraseña incorrecta: {credenciales.email}")
@@ -536,9 +752,10 @@ async def login_usuario(credenciales: UsuarioLogin, db: Database = Depends(get_d
             )
         
         # Crear token JWT
+        # IMPORTANTE: 'sub' debe ser una cadena según el estándar JWT
         access_token_expires = timedelta(minutes=60 * 24)  # 24 horas
         access_token = create_access_token(
-            data={"sub": usuario['id'], "email": usuario['email'], "rol": usuario['rol']},
+            data={"sub": str(usuario['id']), "email": usuario['email'], "rol": usuario['rol']},
             expires_delta=access_token_expires
         )
         
@@ -552,7 +769,7 @@ async def login_usuario(credenciales: UsuarioLogin, db: Database = Depends(get_d
             "activo": usuario['activo']
         }
         
-        logger.info(f"Login exitoso - Usuario: {usuario['email']}")
+        logger.info(f"Login exitoso - Usuario: {usuario['email']} (ID: {usuario['id']}, Rol: {usuario['rol']})")
         
         return {
             "success": True,
@@ -564,10 +781,10 @@ async def login_usuario(credenciales: UsuarioLogin, db: Database = Depends(get_d
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error en el login: {str(e)}")
+        logger.error(f"Error inesperado en el login: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error en el login: {str(e)}"
+            detail="Error interno del servidor. Intenta nuevamente."
         )
 
 @app.patch("/api/usuarios/{usuario_id}/toggle-status", response_model=dict)
@@ -692,9 +909,18 @@ async def obtener_rol(rol_id: int, db: Database = Depends(get_db)):
         raise HTTPException(status_code=500, detail=f"Error al obtener rol: {str(e)}")
 
 @app.post("/api/roles", response_model=dict, status_code=201)
-async def crear_rol(rol: RolCreate, db: Database = Depends(get_db)):
-    """Crear un nuevo rol en el sistema"""
+async def crear_rol(
+    rol: RolCreate,
+    current_user: dict = Depends(require_super_admin),
+    db: Database = Depends(get_db)
+):
+    """Crear un nuevo rol en el sistema - Solo Super Admin (pero según requerimientos nadie puede crear roles)"""
     try:
+        # Según requerimientos, nadie puede crear roles
+        raise HTTPException(
+            status_code=403,
+            detail="No se pueden crear roles personalizados. Solo se pueden gestionar los roles del sistema."
+        )
         if not db.connection:
             db.connect()
         
@@ -924,112 +1150,6 @@ async def asignar_permisos_rol(rol_id: int, asignacion: AsignarPermisosRol, db: 
     except Exception as e:
         logger.error(f"Error al asignar permisos: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error al asignar permisos: {str(e)}")
-
-# ============================================================================
-#                           ENDPOINTS DE AUDITORÍA
-# ============================================================================
-
-@app.get("/api/usuarios/auditoria", response_model=dict)
-async def listar_auditoria(
-    usuario_id: Optional[int] = None,
-    modulo: Optional[str] = None,
-    accion: Optional[str] = None,
-    fecha_desde: Optional[str] = None,
-    fecha_hasta: Optional[str] = None,
-    db: Database = Depends(get_db)
-):
-    """Listar registros de auditoría con filtros opcionales"""
-    try:
-        # Verificar que la conexión a la base de datos esté activa
-        if not db.connection:
-            db.connect()
-        
-        query = """
-            SELECT 
-                a.id_auditoria as id,
-                a.usuario_id,
-                u.nombre as nombre_usuario,
-                a.accion,
-                a.modulo,
-                a.detalles,
-                a.ip_address,
-                a.fecha_accion as timestamp,
-                CASE 
-                    WHEN a.accion LIKE '%exitos%' OR a.accion LIKE '%crear%' OR a.accion LIKE '%actualizar%' THEN 'exitoso'
-                    WHEN a.accion LIKE '%fallido%' OR a.accion LIKE '%error%' THEN 'fallido'
-                    ELSE 'info'
-                END as resultado
-            FROM Usuarios_Auditoria a
-            LEFT JOIN usuarios u ON a.usuario_id = u.id
-            WHERE 1=1
-        """
-        params = []
-        
-        if usuario_id:
-            query += " AND a.usuario_id = ?"
-            params.append(usuario_id)
-        if modulo:
-            query += " AND a.modulo = ?"
-            params.append(modulo)
-        if accion:
-            query += " AND a.accion = ?"
-            params.append(accion)
-        if fecha_desde:
-            query += " AND DATE(a.fecha_accion) >= ?"
-            params.append(fecha_desde)
-        if fecha_hasta:
-            query += " AND DATE(a.fecha_accion) <= ?"
-            params.append(fecha_hasta)
-        
-        query += " ORDER BY a.fecha_accion DESC"
-        
-        try:
-            logs = db.fetch_all(query, tuple(params))
-        except Exception as e:
-            # Si la tabla no existe, retornar lista vacía
-            logger.warning(f"Error al consultar auditoría: {str(e)}")
-            logs = []
-        
-        return {
-            "success": True,
-            "data": logs,
-            "count": len(logs)
-        }
-    except Exception as e:
-        logger.error(f"Error al obtener auditoría: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error al obtener auditoría: {str(e)}")
-
-@app.post("/api/usuarios/auditoria", response_model=dict)
-async def crear_log_auditoria(log_data: dict, db: Database = Depends(get_db)):
-    """Crear un nuevo registro de auditoría"""
-    try:
-        # Verificar que la conexión a la base de datos esté activa
-        if not db.connection:
-            db.connect()
-        
-        cursor = db.execute_query("""
-            INSERT INTO Usuarios_Auditoria (usuario_id, accion, modulo, detalles, ip_address)
-            VALUES (?, ?, ?, ?, ?)
-        """, (
-            log_data.get('usuario_id'),
-            log_data.get('accion', 'Acción no especificada'),
-            log_data.get('modulo'),
-            log_data.get('detalles'),
-            log_data.get('ip_address')
-        ))
-        
-        return {
-            "success": True,
-            "message": "Log de auditoría creado exitosamente",
-            "data": {"id": cursor.lastrowid}
-        }
-    except Exception as e:
-        logger.error(f"Error al crear log de auditoría: {str(e)}")
-        # No lanzar error si la tabla no existe, solo loguear
-        return {
-            "success": False,
-            "message": f"Error al crear log de auditoría: {str(e)}"
-        }
 
 # ============================================================================
 #                           ENDPOINTS DE PERMISOS
@@ -1802,8 +1922,11 @@ async def crear_departamento(departamento: DepartamentoCreate, db: Database = De
 # ============================================================================
 
 @app.get("/api/empleados", response_model=dict)
-async def listar_empleados(db: Database = Depends(get_db)):
-    """Listar todos los empleados con información de departamento"""
+async def listar_empleados(
+    current_user: Optional[dict] = Depends(get_current_user_optional),
+    db: Database = Depends(get_db)
+):
+    """Listar empleados - Acceso permitido sin autenticación obligatoria"""
     try:
         # Verificar que la conexión a la base de datos esté activa
         if not db.connection:
@@ -1811,71 +1934,69 @@ async def listar_empleados(db: Database = Depends(get_db)):
         
         empleados = []
         
-        # Intentar obtener de la tabla nueva (Empleados) primero
+        # Primero intentar con la tabla antigua (empleados) que sabemos que existe y tiene datos
         try:
             empleados = db.fetch_all("""
                 SELECT 
-                    e.id_empleado as id,
-                    e.id_empleado,
+                    e.id,
+                    e.id as id_empleado,
                     e.nombre,
                     e.apellido,
-                    e.correo as email,
-                    e.correo,
+                    e.email,
+                    e.email as correo,
                     e.telefono,
-                    e.direccion,
-                    e.fecha_nacimiento,
-                    e.genero,
-                    e.estado_civil,
+                    e.departamento_id as id_departamento,
+                    e.puesto as id_puesto,
                     e.fecha_ingreso,
-                    e.estado,
-                    e.id_departamento,
-                    e.id_puesto,
-                    COALESCE(
-                        (SELECT salario FROM Contratos 
-                         WHERE id_empleado = e.id_empleado 
-                         ORDER BY fecha_inicio DESC LIMIT 1),
-                        0
-                    ) as salario,
-                    d.nombre_departamento as departamento_nombre,
-                    p.nombre_puesto as puesto_nombre
-                FROM Empleados e
-                LEFT JOIN Departamentos d ON e.id_departamento = d.id_departamento
-                LEFT JOIN Puestos p ON e.id_puesto = p.id_puesto
-                ORDER BY e.id_empleado
+                    COALESCE(e.salario, 0) as salario,
+                    e.activo,
+                    CASE WHEN e.activo = 1 THEN 'Activo' ELSE 'Retirado' END as estado,
+                    d.nombre as departamento_nombre,
+                    COALESCE(p.nombre_puesto, e.puesto, 'Sin puesto asignado') as puesto_nombre,
+                    COALESCE(p.nombre_puesto, e.puesto, 'Sin puesto asignado') as cargo,
+                    p.nivel as nivel_puesto
+                FROM empleados e
+                LEFT JOIN departamentos d ON e.departamento_id = d.id
+                LEFT JOIN Puestos p ON CAST(e.puesto AS INTEGER) = p.id_puesto
+                WHERE e.activo = 1
+                ORDER BY e.id
                 LIMIT 40
             """)
-        except Exception as table_error:
-            # Si falla la tabla nueva, intentar tabla antigua
-            logger.warning(f"Error al consultar tabla Empleados, intentando tabla antigua: {str(table_error)}")
+        except Exception as old_table_error:
+            logger.warning(f"Error al consultar tabla antigua empleados: {str(old_table_error)}")
+            # Intentar tabla nueva (Empleados) sin subconsulta compleja
             try:
                 empleados = db.fetch_all("""
                     SELECT 
-                        e.id,
-                        e.id as id_empleado,
+                        e.id_empleado as id,
+                        e.id_empleado,
                         e.nombre,
                         e.apellido,
-                        e.email,
-                        e.email as correo,
+                        e.correo as email,
+                        e.correo,
                         e.telefono,
-                        e.departamento_id as id_departamento,
-                        e.puesto as id_puesto,
+                        e.direccion,
+                        e.fecha_nacimiento,
+                        e.genero,
+                        e.estado_civil,
                         e.fecha_ingreso,
-                        COALESCE(e.salario, 0) as salario,
-                        e.activo,
-                        CASE WHEN e.activo = 1 THEN 'Activo' ELSE 'Retirado' END as estado,
-                        d.nombre as departamento_nombre,
-                        COALESCE(p.nombre_puesto, e.puesto, 'Sin puesto asignado') as puesto_nombre,
-                        COALESCE(p.nombre_puesto, e.puesto, 'Sin puesto asignado') as cargo,
-                        p.nivel as nivel_puesto
-                    FROM empleados e
-                    LEFT JOIN departamentos d ON e.departamento_id = d.id
-                    LEFT JOIN Puestos p ON CAST(e.puesto AS INTEGER) = p.id_puesto
-                    WHERE e.activo = 1
-                    ORDER BY e.id
+                        e.estado,
+                        e.id_departamento,
+                        e.id_puesto,
+                        0 as salario,
+                        d.nombre_departamento as departamento_nombre,
+                        p.nombre_puesto as puesto_nombre
+                    FROM Empleados e
+                    LEFT JOIN Departamentos d ON e.id_departamento = d.id_departamento
+                    LEFT JOIN Puestos p ON e.id_puesto = p.id_puesto
+                    WHERE e.estado = 'Activo' OR e.estado IS NULL
+                    ORDER BY e.id_empleado
                     LIMIT 40
                 """)
-            except Exception as old_table_error:
-                logger.error(f"Error al consultar tabla antigua empleados: {str(old_table_error)}")
+            except Exception as table_error:
+                logger.error(f"Error al consultar tabla Empleados: {str(table_error)}")
+                import traceback
+                logger.error(f"Traceback completo: {traceback.format_exc()}")
                 # Si ambas fallan, retornar lista vacía en lugar de error
                 empleados = []
         
@@ -1896,43 +2017,16 @@ async def listar_empleados(db: Database = Depends(get_db)):
         )
 
 @app.get("/api/empleados/{empleado_id}", response_model=dict)
-async def obtener_empleado(empleado_id: int, db: Database = Depends(get_db)):
-    """Obtener un empleado por ID"""
+async def obtener_empleado(
+    empleado_id: int,
+    current_user: dict = Depends(get_current_active_user),
+    db: Database = Depends(get_db)
+):
+    """Obtener un empleado por ID - Acceso normal sin restricciones"""
     try:
-        # Intentar tabla nueva
-        empleado = db.fetch_one("""
-            SELECT 
-                e.id_empleado as id,
-                e.id_empleado,
-                e.nombre,
-                e.apellido,
-                e.correo as email,
-                e.correo,
-                e.telefono,
-                e.direccion,
-                e.fecha_nacimiento,
-                e.genero,
-                e.estado_civil,
-                e.fecha_ingreso,
-                e.estado,
-                e.id_departamento,
-                e.id_puesto,
-                COALESCE(
-                    (SELECT salario FROM Contratos 
-                     WHERE id_empleado = e.id_empleado 
-                     ORDER BY fecha_inicio DESC LIMIT 1),
-                    0
-                ) as salario,
-                d.nombre_departamento as departamento_nombre,
-                p.nombre_puesto as puesto_nombre
-            FROM Empleados e
-            LEFT JOIN Departamentos d ON e.id_departamento = d.id_departamento
-            LEFT JOIN Puestos p ON e.id_puesto = p.id_puesto
-            WHERE e.id_empleado = ?
-        """, (empleado_id,))
-        
-        # Si no existe, buscar en tabla antigua
-        if not empleado:
+        # Primero intentar tabla antigua (empleados) que sabemos que existe
+        empleado = None
+        try:
             empleado = db.fetch_one("""
                 SELECT 
                     e.id,
@@ -1957,7 +2051,41 @@ async def obtener_empleado(empleado_id: int, db: Database = Depends(get_db)):
                 LEFT JOIN Puestos p ON CAST(e.puesto AS INTEGER) = p.id_puesto
                 WHERE e.id = ? AND e.activo = 1
             """, (empleado_id,))
+        except Exception as old_table_error:
+            logger.warning(f"Error al consultar tabla antigua para empleado {empleado_id}: {str(old_table_error)}")
+            # Intentar tabla nueva sin subconsulta compleja
+            try:
+                empleado = db.fetch_one("""
+                    SELECT 
+                        e.id_empleado as id,
+                        e.id_empleado,
+                        e.nombre,
+                        e.apellido,
+                        e.correo as email,
+                        e.correo,
+                        e.telefono,
+                        e.direccion,
+                        e.fecha_nacimiento,
+                        e.genero,
+                        e.estado_civil,
+                        e.fecha_ingreso,
+                        e.estado,
+                        e.id_departamento,
+                        e.id_puesto,
+                        0 as salario,
+                        d.nombre_departamento as departamento_nombre,
+                        p.nombre_puesto as puesto_nombre
+                    FROM Empleados e
+                    LEFT JOIN Departamentos d ON e.id_departamento = d.id_departamento
+                    LEFT JOIN Puestos p ON e.id_puesto = p.id_puesto
+                    WHERE e.id_empleado = ?
+                """, (empleado_id,))
+            except Exception as table_error:
+                logger.error(f"Error al consultar tabla Empleados para empleado {empleado_id}: {str(table_error)}")
+                import traceback
+                logger.error(f"Traceback: {traceback.format_exc()}")
         
+        # Si no existe en ninguna tabla
         if not empleado:
             raise HTTPException(status_code=404, detail=f"Empleado con ID {empleado_id} no encontrado")
         
@@ -1971,9 +2099,19 @@ async def obtener_empleado(empleado_id: int, db: Database = Depends(get_db)):
         raise HTTPException(status_code=500, detail=f"Error al obtener empleado: {str(e)}")
 
 @app.post("/api/empleados", response_model=dict, status_code=201)
-async def crear_empleado(empleado: EmpleadoCreate, db: Database = Depends(get_db)):
-    """Crear un nuevo empleado"""
+async def crear_empleado(
+    empleado: EmpleadoCreate,
+    current_user: dict = Depends(get_current_active_user),
+    db: Database = Depends(get_db)
+):
+    """Crear un nuevo empleado - Solo Gerente y Super Admin"""
     try:
+        # Verificar permisos
+        if not can_create_employee(current_user):
+            raise HTTPException(
+                status_code=403,
+                detail="No tiene permisos para crear empleados"
+            )
         # Verificar que el departamento existe
         depto = db.fetch_one("SELECT id_departamento FROM Departamentos WHERE id_departamento = ?", (empleado.departamento_id,))
         if not depto:
@@ -2009,12 +2147,7 @@ async def crear_empleado(empleado: EmpleadoCreate, db: Database = Depends(get_db
                 e.estado,
                 e.id_departamento,
                 e.id_puesto,
-                COALESCE(
-                    (SELECT salario FROM Contratos 
-                     WHERE id_empleado = e.id_empleado 
-                     ORDER BY fecha_inicio DESC LIMIT 1),
-                    0
-                ) as salario,
+                0 as salario,
                 d.nombre_departamento as departamento_nombre,
                 p.nombre_puesto as puesto_nombre
             FROM Empleados e
@@ -2046,11 +2179,40 @@ async def crear_empleado(empleado: EmpleadoCreate, db: Database = Depends(get_db
         raise HTTPException(status_code=500, detail=f"Error al crear empleado: {str(e)}")
 
 @app.put("/api/empleados/{empleado_id}", response_model=dict)
-async def actualizar_empleado(empleado_id: int, empleado: EmpleadoUpdate, db: Database = Depends(get_db)):
-    """Actualizar un empleado existente"""
+async def actualizar_empleado(
+    empleado_id: int,
+    empleado: EmpleadoUpdate,
+    current_user: dict = Depends(get_current_active_user),
+    db: Database = Depends(get_db)
+):
+    """Actualizar un empleado existente - Con restricciones según rol"""
     try:
-        # Verificar que el empleado existe
-        existente = db.fetch_one("SELECT id_empleado FROM Empleados WHERE id_empleado = ?", (empleado_id,))
+        # Verificar permisos de edición
+        if not can_edit_employee(current_user, empleado_id, db):
+            raise HTTPException(
+                status_code=403,
+                detail="No tiene permisos para editar este empleado"
+            )
+        
+        # Detectar qué estructura de tabla se está usando
+        # Intentar primero con tabla antigua (empleados con columna id)
+        tabla_antigua = False
+        existente = None
+        
+        try:
+            existente = db.fetch_one("SELECT id FROM empleados WHERE id = ?", (empleado_id,))
+            if existente:
+                tabla_antigua = True
+        except Exception:
+            pass
+        
+        # Si no existe en tabla antigua, intentar tabla nueva (Empleados con id_empleado)
+        if not existente:
+            try:
+                existente = db.fetch_one("SELECT id_empleado FROM Empleados WHERE id_empleado = ?", (empleado_id,))
+            except Exception:
+                pass
+        
         if not existente:
             raise HTTPException(status_code=404, detail=f"Empleado con ID {empleado_id} no encontrado")
         
@@ -2063,58 +2225,108 @@ async def actualizar_empleado(empleado_id: int, empleado: EmpleadoUpdate, db: Da
         if empleado.apellido:
             updates.append("apellido = ?")
             params.append(empleado.apellido)
-        if empleado.email:
-            updates.append("correo = ?")
-            params.append(empleado.email)
-        if empleado.telefono:
-            updates.append("telefono = ?")
-            params.append(empleado.telefono)
-        if empleado.departamento_id:
-            updates.append("id_departamento = ?")
-            params.append(empleado.departamento_id)
-        if empleado.puesto:
-            updates.append("puesto = ?")
-            params.append(empleado.puesto)
-        if empleado.fecha_ingreso:
-            updates.append("fecha_ingreso = ?")
-            params.append(empleado.fecha_ingreso)
-        if empleado.activo is not None:
-            updates.append("estado = ?")
-            params.append("Activo" if empleado.activo else "Retirado")
         
-        if not updates:
-            raise HTTPException(status_code=400, detail="No se proporcionaron campos para actualizar")
-        
-        params.append(empleado_id)
-        query = f"UPDATE Empleados SET {', '.join(updates)} WHERE id_empleado = ?"
-        db.execute_query(query, tuple(params))
-        
-        empleado_actualizado = db.fetch_one("""
-            SELECT 
-                e.id_empleado as id,
-                e.id_empleado,
-                e.nombre,
-                e.apellido,
-                e.correo as email,
-                e.correo,
-                e.telefono,
-                e.fecha_ingreso,
-                e.estado,
-                e.id_departamento,
-                e.id_puesto,
-                COALESCE(
-                    (SELECT salario FROM Contratos 
-                     WHERE id_empleado = e.id_empleado 
-                     ORDER BY fecha_inicio DESC LIMIT 1),
-                    0
-                ) as salario,
-                d.nombre_departamento as departamento_nombre,
-                p.nombre_puesto as puesto_nombre
-            FROM Empleados e
-            LEFT JOIN Departamentos d ON e.id_departamento = d.id_departamento
-            LEFT JOIN Puestos p ON e.id_puesto = p.id_puesto
-            WHERE e.id_empleado = ?
-        """, (empleado_id,))
+        if tabla_antigua:
+            # Tabla antigua: empleados (minúscula) con columna id
+            if empleado.email:
+                updates.append("email = ?")
+                params.append(empleado.email)
+            if empleado.telefono:
+                updates.append("telefono = ?")
+                params.append(empleado.telefono)
+            if empleado.departamento_id:
+                updates.append("departamento_id = ?")
+                params.append(empleado.departamento_id)
+            if empleado.puesto:
+                updates.append("puesto = ?")
+                params.append(empleado.puesto)
+            if empleado.fecha_ingreso:
+                updates.append("fecha_ingreso = ?")
+                params.append(empleado.fecha_ingreso)
+            if empleado.activo is not None:
+                updates.append("activo = ?")
+                params.append(1 if empleado.activo else 0)
+            
+            if not updates:
+                raise HTTPException(status_code=400, detail="No se proporcionaron campos para actualizar")
+            
+            params.append(empleado_id)
+            query = f"UPDATE empleados SET {', '.join(updates)} WHERE id = ?"
+            db.execute_query(query, tuple(params))
+            
+            # Obtener empleado actualizado
+            empleado_actualizado = db.fetch_one("""
+                SELECT 
+                    e.id,
+                    e.id as id_empleado,
+                    e.nombre,
+                    e.apellido,
+                    e.email,
+                    e.email as correo,
+                    e.telefono,
+                    e.departamento_id as id_departamento,
+                    e.puesto,
+                    e.fecha_ingreso,
+                    COALESCE(e.salario, 0) as salario,
+                    e.activo,
+                    CASE WHEN e.activo = 1 THEN 'Activo' ELSE 'Retirado' END as estado,
+                    d.nombre as departamento_nombre,
+                    COALESCE(p.nombre_puesto, e.puesto) as puesto_nombre
+                FROM empleados e
+                LEFT JOIN departamentos d ON e.departamento_id = d.id
+                LEFT JOIN Puestos p ON CAST(e.puesto AS INTEGER) = p.id_puesto
+                WHERE e.id = ?
+            """, (empleado_id,))
+        else:
+            # Tabla nueva: Empleados (mayúscula) con columna id_empleado
+            if empleado.email:
+                updates.append("correo = ?")
+                params.append(empleado.email)
+            if empleado.telefono:
+                updates.append("telefono = ?")
+                params.append(empleado.telefono)
+            if empleado.departamento_id:
+                updates.append("id_departamento = ?")
+                params.append(empleado.departamento_id)
+            if empleado.puesto:
+                updates.append("puesto = ?")
+                params.append(empleado.puesto)
+            if empleado.fecha_ingreso:
+                updates.append("fecha_ingreso = ?")
+                params.append(empleado.fecha_ingreso)
+            if empleado.activo is not None:
+                updates.append("estado = ?")
+                params.append("Activo" if empleado.activo else "Retirado")
+            
+            if not updates:
+                raise HTTPException(status_code=400, detail="No se proporcionaron campos para actualizar")
+            
+            params.append(empleado_id)
+            query = f"UPDATE Empleados SET {', '.join(updates)} WHERE id_empleado = ?"
+            db.execute_query(query, tuple(params))
+            
+            # Obtener empleado actualizado
+            empleado_actualizado = db.fetch_one("""
+                SELECT 
+                    e.id_empleado as id,
+                    e.id_empleado,
+                    e.nombre,
+                    e.apellido,
+                    e.correo as email,
+                    e.correo,
+                    e.telefono,
+                    e.fecha_ingreso,
+                    e.estado,
+                    e.id_departamento,
+                    e.id_puesto,
+                    0 as salario,
+                    d.nombre_departamento as departamento_nombre,
+                    p.nombre_puesto as puesto_nombre
+                FROM Empleados e
+                LEFT JOIN Departamentos d ON e.id_departamento = d.id_departamento
+                LEFT JOIN Puestos p ON e.id_puesto = p.id_puesto
+                WHERE e.id_empleado = ?
+            """, (empleado_id,))
         
         return {
             "status": "success",
@@ -2127,9 +2339,19 @@ async def actualizar_empleado(empleado_id: int, empleado: EmpleadoUpdate, db: Da
         raise HTTPException(status_code=500, detail=f"Error al actualizar empleado: {str(e)}")
 
 @app.delete("/api/empleados/{empleado_id}", response_model=dict)
-async def eliminar_empleado(empleado_id: int, db: Database = Depends(get_db)):
-    """Eliminar (desactivar) un empleado"""
+async def eliminar_empleado(
+    empleado_id: int,
+    current_user: dict = Depends(get_current_active_user),
+    db: Database = Depends(get_db)
+):
+    """Eliminar (desactivar) un empleado - Solo Gerente y Super Admin"""
     try:
+        # Verificar permisos
+        if not can_delete_employee(current_user):
+            raise HTTPException(
+                status_code=403,
+                detail="No tiene permisos para eliminar empleados"
+            )
         empleado = db.fetch_one("SELECT id_empleado, nombre FROM Empleados WHERE id_empleado = ?", (empleado_id,))
         if not empleado:
             raise HTTPException(status_code=404, detail=f"Empleado con ID {empleado_id} no encontrado")
@@ -2214,22 +2436,25 @@ async def listar_contratos(id_empleado: Optional[int] = None, db: Database = Dep
                 logger.info("Tabla Contratos no existe, retornando lista vacía")
                 contratos = []
             else:
-                # Intentar sin JOIN
+                # Intentar sin JOIN y luego obtener nombres de empleados
                 try:
                     if id_empleado:
                         contratos = db.fetch_all("""
-                            SELECT c.*, 'Empleado ID: ' || c.id_empleado as empleado_nombre
+                            SELECT c.*
                             FROM Contratos c
                             WHERE c.id_empleado = ?
                             ORDER BY c.fecha_inicio DESC
                         """, (id_empleado,))
                     else:
                         contratos = db.fetch_all("""
-                            SELECT c.*, 'Empleado ID: ' || c.id_empleado as empleado_nombre
+                            SELECT c.*
                             FROM Contratos c
                             ORDER BY c.fecha_inicio DESC
                             LIMIT 40
                         """)
+                    # Agregar nombre de empleado a cada contrato
+                    for contrato in contratos:
+                        contrato['empleado_nombre'] = get_empleado_nombre_by_id(db, contrato.get('id_empleado', 0))
                 except Exception as fallback_error:
                     logger.error(f"Error al consultar tabla Contratos sin JOIN: {str(fallback_error)}")
                     contratos = []
@@ -2274,10 +2499,12 @@ async def obtener_contrato(contrato_id: int, db: Database = Depends(get_db)):
             logger.warning(f"Error al consultar contrato con JOIN, intentando sin JOIN: {str(table_error)}")
             try:
                 contrato = db.fetch_one("""
-                    SELECT c.*, 'Empleado ID: ' || c.id_empleado as empleado_nombre
+                    SELECT c.*
                     FROM Contratos c
                     WHERE c.id_contrato = ?
                 """, (contrato_id,))
+                if contrato:
+                    contrato['empleado_nombre'] = get_empleado_nombre_by_id(db, contrato.get('id_empleado', 0))
             except Exception as fallback_error:
                 logger.error(f"Error al consultar contrato: {str(fallback_error)}")
                 contrato = None
@@ -2298,7 +2525,11 @@ async def obtener_contrato(contrato_id: int, db: Database = Depends(get_db)):
         )
 
 @app.post("/api/contratos", response_model=dict, status_code=201)
-async def crear_contrato(contrato: ContratoCreate, db: Database = Depends(get_db)):
+async def crear_contrato(
+    contrato: ContratoCreate, 
+    db: Database = Depends(get_db),
+    current_user: Optional[dict] = Depends(get_current_user_optional)
+):
     """Crear un nuevo contrato completo con todos los datos requeridos"""
     try:
         # Obtener datos del empleado si no se proporcionaron
@@ -2324,9 +2555,12 @@ async def crear_contrato(contrato: ContratoCreate, db: Database = Depends(get_db
         nombre_puesto_final = contrato.nombre_puesto or (empleado.get('puesto') if empleado else None)
         id_departamento_final = contrato.id_departamento or (empleado['id_departamento'] if empleado else None)
         
+        # Obtener nombre del empleado para almacenarlo
+        nombre_empleado = trabajador_nombre or get_empleado_nombre_by_id(db, contrato.id_empleado)
+        
         cursor = db.execute_query("""
             INSERT INTO Contratos (
-                id_empleado,
+                id_empleado, nombre_empleado,
                 empresa_nombre, empresa_representante_legal, empresa_rtn, empresa_direccion, empresa_telefono, empresa_email,
                 trabajador_nombre_completo, trabajador_dni, trabajador_nacionalidad, trabajador_estado_civil,
                 trabajador_direccion, trabajador_telefono, trabajador_email,
@@ -2340,9 +2574,9 @@ async def crear_contrato(contrato: ContratoCreate, db: Database = Depends(get_db
                 causas_terminacion, tiempo_preaviso, pago_prestaciones,
                 politica_uniformes, uso_vehiculos, trabajo_remoto, politica_horas_extras, uso_sistemas,
                 condiciones, estado
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
-            contrato.id_empleado,
+            contrato.id_empleado, nombre_empleado,
             contrato.empresa_nombre, contrato.empresa_representante_legal, contrato.empresa_rtn,
             contrato.empresa_direccion, contrato.empresa_telefono, contrato.empresa_email,
             trabajador_nombre, contrato.trabajador_dni, contrato.trabajador_nacionalidad, contrato.trabajador_estado_civil,
@@ -2375,10 +2609,12 @@ async def crear_contrato(contrato: ContratoCreate, db: Database = Depends(get_db
         except Exception:
             # Si falla el JOIN, obtener solo el contrato
             nuevo_contrato = db.fetch_one("""
-                SELECT c.*, 'Empleado ID: ' || c.id_empleado as empleado_nombre
+                SELECT c.*
                 FROM Contratos c
                 WHERE c.id_contrato = ?
             """, (cursor.lastrowid,))
+            if nuevo_contrato:
+                nuevo_contrato['empleado_nombre'] = get_empleado_nombre_by_id(db, nuevo_contrato.get('id_empleado', 0))
         
         return {"status": "success", "message": "Contrato creado exitosamente", "data": nuevo_contrato}
     except Exception as e:
@@ -2609,10 +2845,12 @@ async def actualizar_contrato(contrato_id: int, contrato: ContratoUpdate, db: Da
         except Exception:
             # Si falla el JOIN, obtener solo el contrato
             contrato_actualizado = db.fetch_one("""
-                SELECT c.*, 'Empleado ID: ' || c.id_empleado as empleado_nombre
+                SELECT c.*
                 FROM Contratos c
                 WHERE c.id_contrato = ?
             """, (contrato_id,))
+            if contrato_actualizado:
+                contrato_actualizado['empleado_nombre'] = get_empleado_nombre_by_id(db, contrato_actualizado.get('id_empleado', 0))
         
         return {"status": "success", "message": "Contrato actualizado exitosamente", "data": contrato_actualizado}
     except HTTPException:
@@ -2680,7 +2918,6 @@ async def alertas_vencimiento_contratos(dias: int = 30, db: Database = Depends(g
                 try:
                     contratos = db.fetch_all("""
                         SELECT c.*, 
-                               'Empleado ID: ' || c.id_empleado as empleado_nombre,
                                CAST(julianday(c.fecha_fin) - julianday('now') AS INTEGER) as dias_restantes
                         FROM Contratos c
                         WHERE c.fecha_fin IS NOT NULL 
@@ -2728,19 +2965,19 @@ async def listar_asistencias(
         
         asistencias = []
         
-        # Intentar obtener de la tabla nueva (Asistencias con Empleados)
+        # Intentar obtener de la tabla asistencias (minúscula) con JOIN a empleados
         try:
             query = """
                 SELECT a.*, 
                        COALESCE(e.nombre || ' ' || e.apellido, 'Empleado no encontrado') as empleado_nombre
-                FROM Asistencias a
-                LEFT JOIN Empleados e ON a.id_empleado = e.id_empleado
+                FROM asistencias a
+                LEFT JOIN empleados e ON a.empleado_id = e.id
                 WHERE 1=1
             """
             params = []
             
             if id_empleado:
-                query += " AND a.id_empleado = ?"
+                query += " AND a.empleado_id = ?"
                 params.append(id_empleado)
             if fecha_inicio:
                 query += " AND a.fecha >= ?"
@@ -2752,26 +2989,50 @@ async def listar_asistencias(
             query += " ORDER BY a.fecha DESC, a.hora_entrada DESC"
             
             asistencias = db.fetch_all(query, tuple(params))
+            logger.info(f"Asistencias obtenidas de tabla 'asistencias': {len(asistencias)} registros")
         except Exception as table_error:
-            # Si falla la tabla nueva, intentar sin JOIN
+            # Si falla la tabla asistencias, intentar con Asistencias (mayúscula)
             error_msg = str(table_error).lower()
-            logger.warning(f"Error al consultar asistencias: {str(table_error)}")
+            logger.warning(f"Error al consultar tabla 'asistencias': {str(table_error)}")
             
-            # Si la tabla no existe, retornar lista vacía
-            if 'no such table' in error_msg or 'does not exist' in error_msg:
-                logger.info("Tabla Asistencias no existe, retornando lista vacía")
-                asistencias = []
-            else:
+            try:
+                # Intentar con tabla Asistencias (mayúscula) y Empleados
+                query = """
+                    SELECT a.*, 
+                           COALESCE(e.nombre || ' ' || e.apellido, 'Empleado no encontrado') as empleado_nombre
+                    FROM Asistencias a
+                    LEFT JOIN Empleados e ON a.id_empleado = e.id_empleado
+                    WHERE 1=1
+                """
+                params = []
+                
+                if id_empleado:
+                    query += " AND a.id_empleado = ?"
+                    params.append(id_empleado)
+                if fecha_inicio:
+                    query += " AND a.fecha >= ?"
+                    params.append(fecha_inicio)
+                if fecha_fin:
+                    query += " AND a.fecha <= ?"
+                    params.append(fecha_fin)
+                
+                query += " ORDER BY a.fecha DESC, a.hora_entrada DESC"
+                
+                asistencias = db.fetch_all(query, tuple(params))
+                logger.info(f"Asistencias obtenidas de tabla 'Asistencias': {len(asistencias)} registros")
+            except Exception as fallback_error:
+                logger.error(f"Error al consultar tabla 'Asistencias': {str(fallback_error)}")
+                # Último intento: solo tabla asistencias sin JOIN
                 try:
                     query = """
-                        SELECT a.*, 'Empleado ID: ' || a.id_empleado as empleado_nombre
-                        FROM Asistencias a
+                        SELECT a.*
+                        FROM asistencias a
                         WHERE 1=1
                     """
                     params = []
                     
                     if id_empleado:
-                        query += " AND a.id_empleado = ?"
+                        query += " AND a.empleado_id = ?"
                         params.append(id_empleado)
                     if fecha_inicio:
                         query += " AND a.fecha >= ?"
@@ -2783,8 +3044,16 @@ async def listar_asistencias(
                     query += " ORDER BY a.fecha DESC, a.hora_entrada DESC"
                     
                     asistencias = db.fetch_all(query, tuple(params))
-                except Exception as fallback_error:
-                    logger.error(f"Error al consultar asistencias sin JOIN: {str(fallback_error)}")
+                    # Agregar nombre de empleado a cada asistencia
+                    for asistencia in asistencias:
+                        empleado_id = asistencia.get('empleado_id') or asistencia.get('id_empleado')
+                        if empleado_id:
+                            asistencia['empleado_nombre'] = get_empleado_nombre_by_id(db, empleado_id)
+                        else:
+                            asistencia['empleado_nombre'] = 'Empleado no encontrado'
+                    logger.info(f"Asistencias obtenidas sin JOIN: {len(asistencias)} registros")
+                except Exception as final_error:
+                    logger.error(f"Error final al consultar asistencias: {str(final_error)}")
                     asistencias = []
         
         return {"status": "success", "data": asistencias, "count": len(asistencias)}
@@ -2805,25 +3074,41 @@ async def obtener_asistencia(asistencia_id: int, db: Database = Depends(get_db))
     try:
         asistencia = None
         
-        # Intentar con JOIN primero
+        # Intentar con tabla asistencias (minúscula) primero
         try:
             asistencia = db.fetch_one("""
                 SELECT a.*, 
                        COALESCE(e.nombre || ' ' || e.apellido, 'Empleado no encontrado') as empleado_nombre
-                FROM Asistencias a
-                LEFT JOIN Empleados e ON a.id_empleado = e.id_empleado
-                WHERE a.id_asistencia = ?
+                FROM asistencias a
+                LEFT JOIN empleados e ON a.empleado_id = e.id
+                WHERE a.id = ?
             """, (asistencia_id,))
         except Exception:
-            # Si falla, intentar sin JOIN
+            # Si falla, intentar con tabla Asistencias (mayúscula)
             try:
                 asistencia = db.fetch_one("""
-                    SELECT a.*, 'Empleado ID: ' || a.id_empleado as empleado_nombre
+                    SELECT a.*, 
+                           COALESCE(e.nombre || ' ' || e.apellido, 'Empleado no encontrado') as empleado_nombre
                     FROM Asistencias a
+                    LEFT JOIN Empleados e ON a.id_empleado = e.id_empleado
                     WHERE a.id_asistencia = ?
                 """, (asistencia_id,))
             except Exception:
-                asistencia = None
+                # Último intento sin JOIN
+                try:
+                    asistencia = db.fetch_one("""
+                        SELECT a.*
+                        FROM asistencias a
+                        WHERE a.id = ?
+                    """, (asistencia_id,))
+                    if asistencia:
+                        empleado_id = asistencia.get('empleado_id') or asistencia.get('id_empleado')
+                        if empleado_id:
+                            asistencia['empleado_nombre'] = get_empleado_nombre_by_id(db, empleado_id)
+                        else:
+                            asistencia['empleado_nombre'] = 'Empleado no encontrado'
+                except Exception:
+                    asistencia = None
         
         if not asistencia:
             raise HTTPException(status_code=404, detail=f"Asistencia con ID {asistencia_id} no encontrada")
@@ -2838,23 +3123,55 @@ async def obtener_asistencia(asistencia_id: int, db: Database = Depends(get_db))
 async def crear_asistencia(asistencia: AsistenciaCreate, db: Database = Depends(get_db)):
     """Crear un nuevo registro de asistencia"""
     try:
-        cursor = db.execute_query("""
-            INSERT INTO Asistencias (id_empleado, fecha, hora_entrada, hora_salida, observaciones)
-            VALUES (?, ?, ?, ?, ?)
-        """, (
-            asistencia.id_empleado,
-            asistencia.fecha,
-            asistencia.hora_entrada,
-            asistencia.hora_salida,
-            asistencia.observaciones
-        ))
+        # Obtener el ID del empleado (acepta ambos nombres: empleado_id o id_empleado)
+        empleado_id = asistencia.id_empleado or asistencia.empleado_id
+        if empleado_id is None:
+            raise HTTPException(status_code=400, detail="Se requiere id_empleado o empleado_id")
         
-        nueva_asistencia = db.fetch_one("""
-            SELECT a.*, e.nombre || ' ' || e.apellido as empleado_nombre
-            FROM Asistencias a
-            JOIN Empleados e ON a.id_empleado = e.id_empleado
-            WHERE a.id_asistencia = ?
-        """, (cursor.lastrowid,))
+        # Obtener nombre del empleado
+        nombre_empleado = get_empleado_nombre_by_id(db, empleado_id)
+        
+        # Intentar insertar en tabla asistencias (minúscula) primero
+        try:
+            cursor = db.execute_query("""
+                INSERT INTO asistencias (empleado_id, nombre_empleado, fecha, hora_entrada, hora_salida, estado, observaciones)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (
+                empleado_id,
+                nombre_empleado,
+                asistencia.fecha,
+                asistencia.hora_entrada,
+                asistencia.hora_salida,
+                asistencia.estado or 'presente',
+                asistencia.observaciones
+            ))
+            
+            nueva_asistencia = db.fetch_one("""
+                SELECT a.*, e.nombre || ' ' || e.apellido as empleado_nombre
+                FROM asistencias a
+                LEFT JOIN empleados e ON a.empleado_id = e.id
+                WHERE a.id = ?
+            """, (cursor.lastrowid,))
+        except Exception:
+            # Si falla, intentar con tabla Asistencias (mayúscula)
+            cursor = db.execute_query("""
+                INSERT INTO Asistencias (id_empleado, nombre_empleado, fecha, hora_entrada, hora_salida, observaciones)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (
+                empleado_id,
+                nombre_empleado,
+                asistencia.fecha,
+                asistencia.hora_entrada,
+                asistencia.hora_salida,
+                asistencia.observaciones
+            ))
+            
+            nueva_asistencia = db.fetch_one("""
+                SELECT a.*, e.nombre || ' ' || e.apellido as empleado_nombre
+                FROM Asistencias a
+                LEFT JOIN Empleados e ON a.id_empleado = e.id_empleado
+                WHERE a.id_asistencia = ?
+            """, (cursor.lastrowid,))
         
         return {"status": "success", "message": "Asistencia registrada exitosamente", "data": nueva_asistencia}
     except Exception as e:
@@ -2864,7 +3181,19 @@ async def crear_asistencia(asistencia: AsistenciaCreate, db: Database = Depends(
 async def actualizar_asistencia(asistencia_id: int, asistencia: AsistenciaUpdate, db: Database = Depends(get_db)):
     """Actualizar una asistencia"""
     try:
-        existente = db.fetch_one("SELECT id_asistencia FROM Asistencias WHERE id_asistencia = ?", (asistencia_id,))
+        # Intentar con tabla asistencias (minúscula) primero
+        existente = None
+        tabla = "asistencias"
+        id_col = "id"
+        
+        try:
+            existente = db.fetch_one(f"SELECT {id_col} FROM {tabla} WHERE {id_col} = ?", (asistencia_id,))
+        except Exception:
+            # Si falla, intentar con tabla Asistencias (mayúscula)
+            tabla = "Asistencias"
+            id_col = "id_asistencia"
+            existente = db.fetch_one(f"SELECT {id_col} FROM {tabla} WHERE {id_col} = ?", (asistencia_id,))
+        
         if not existente:
             raise HTTPException(status_code=404, detail=f"Asistencia con ID {asistencia_id} no encontrada")
         
@@ -2877,6 +3206,9 @@ async def actualizar_asistencia(asistencia_id: int, asistencia: AsistenciaUpdate
         if asistencia.hora_salida:
             updates.append("hora_salida = ?")
             params.append(asistencia.hora_salida)
+        if hasattr(asistencia, 'estado') and asistencia.estado:
+            updates.append("estado = ?")
+            params.append(asistencia.estado)
         if asistencia.observaciones:
             updates.append("observaciones = ?")
             params.append(asistencia.observaciones)
@@ -2885,15 +3217,24 @@ async def actualizar_asistencia(asistencia_id: int, asistencia: AsistenciaUpdate
             raise HTTPException(status_code=400, detail="No se proporcionaron campos para actualizar")
         
         params.append(asistencia_id)
-        query = f"UPDATE Asistencias SET {', '.join(updates)} WHERE id_asistencia = ?"
+        query = f"UPDATE {tabla} SET {', '.join(updates)} WHERE {id_col} = ?"
         db.execute_query(query, tuple(params))
         
-        asistencia_actualizada = db.fetch_one("""
-            SELECT a.*, e.nombre || ' ' || e.apellido as empleado_nombre
-            FROM Asistencias a
-            JOIN Empleados e ON a.id_empleado = e.id_empleado
-            WHERE a.id_asistencia = ?
-        """, (asistencia_id,))
+        # Obtener la asistencia actualizada
+        if tabla == "asistencias":
+            asistencia_actualizada = db.fetch_one("""
+                SELECT a.*, e.nombre || ' ' || e.apellido as empleado_nombre
+                FROM asistencias a
+                LEFT JOIN empleados e ON a.empleado_id = e.id
+                WHERE a.id = ?
+            """, (asistencia_id,))
+        else:
+            asistencia_actualizada = db.fetch_one("""
+                SELECT a.*, e.nombre || ' ' || e.apellido as empleado_nombre
+                FROM Asistencias a
+                LEFT JOIN Empleados e ON a.id_empleado = e.id_empleado
+                WHERE a.id_asistencia = ?
+            """, (asistencia_id,))
         
         return {"status": "success", "message": "Asistencia actualizada exitosamente", "data": asistencia_actualizada}
     except HTTPException:
@@ -2905,11 +3246,23 @@ async def actualizar_asistencia(asistencia_id: int, asistencia: AsistenciaUpdate
 async def eliminar_asistencia(asistencia_id: int, db: Database = Depends(get_db)):
     """Eliminar una asistencia"""
     try:
-        asistencia = db.fetch_one("SELECT id_asistencia FROM Asistencias WHERE id_asistencia = ?", (asistencia_id,))
+        # Intentar con tabla asistencias (minúscula) primero
+        asistencia = None
+        tabla = "asistencias"
+        id_col = "id"
+        
+        try:
+            asistencia = db.fetch_one(f"SELECT {id_col} FROM {tabla} WHERE {id_col} = ?", (asistencia_id,))
+        except Exception:
+            # Si falla, intentar con tabla Asistencias (mayúscula)
+            tabla = "Asistencias"
+            id_col = "id_asistencia"
+            asistencia = db.fetch_one(f"SELECT {id_col} FROM {tabla} WHERE {id_col} = ?", (asistencia_id,))
+        
         if not asistencia:
             raise HTTPException(status_code=404, detail=f"Asistencia con ID {asistencia_id} no encontrada")
         
-        db.execute_query("DELETE FROM Asistencias WHERE id_asistencia = ?", (asistencia_id,))
+        db.execute_query(f"DELETE FROM {tabla} WHERE {id_col} = ?", (asistencia_id,))
         
         return {"status": "success", "message": "Asistencia eliminada exitosamente"}
     except HTTPException:
@@ -2968,10 +3321,40 @@ async def listar_nominas(
     id_empleado: Optional[int] = None,
     mes: Optional[int] = None,
     anio: Optional[int] = None,
+    current_user: dict = Depends(get_current_active_user),
     db: Database = Depends(get_db)
 ):
-    """Listar nóminas con filtros opcionales y manejo robusto"""
+    """Listar nóminas con restricciones estrictas según rol"""
     try:
+        # Verificar acceso a nómina según rol
+        if not can_view_nomina(current_user, id_empleado, db):
+            raise HTTPException(
+                status_code=403,
+                detail="No tiene permisos para ver información de nómina"
+            )
+        
+        # Si es operativo, forzar que solo vea su propia nómina
+        if is_operativo(current_user):
+            empleado = db.fetch_one(
+                "SELECT id_empleado FROM Empleados WHERE correo = ?",
+                (current_user.get("email"),)
+            )
+            if empleado:
+                id_empleado = empleado.get("id_empleado")
+            else:
+                raise HTTPException(
+                    status_code=403,
+                    detail="No tiene empleado asociado"
+                )
+        
+        # Si es supervisor, solo puede ver nómina de su equipo
+        # (Por ahora permitimos, pero se puede mejorar con jerarquías)
+        if is_supervisor(current_user) and not id_empleado:
+            # Supervisor no puede ver nómina general, solo de su equipo
+            raise HTTPException(
+                status_code=403,
+                detail="Supervisor solo puede ver nómina de su equipo"
+            )
         # Verificar que la conexión a la base de datos esté activa
         if not db.connection:
             db.connect()
@@ -3009,7 +3392,7 @@ async def listar_nominas(
             
             try:
                 query = """
-                    SELECT n.*, 'Empleado ID: ' || n.id_empleado as nombre_empleado
+                    SELECT n.*
                     FROM Nomina n
                     WHERE 1=1
                 """
@@ -3027,6 +3410,9 @@ async def listar_nominas(
                 query += " ORDER BY n.anio DESC, n.mes DESC, n.fecha_creacion DESC"
                 
                 nominas = db.fetch_all(query, tuple(params))
+                # Agregar nombre de empleado a cada nómina
+                for nomina in nominas:
+                    nomina['nombre_empleado'] = get_empleado_nombre_by_id(db, nomina.get('id_empleado', 0))
             except Exception as fallback_error:
                 logger.error(f"Error al consultar nóminas sin JOIN: {str(fallback_error)}")
                 # Si la tabla no existe, retornar lista vacía
@@ -3055,11 +3441,15 @@ async def listar_nominas(
         raise HTTPException(status_code=500, detail=f"Error al obtener nóminas: {str(e)}")
 
 @app.get("/api/nomina/{nomina_id}", response_model=dict)
-async def obtener_nomina(nomina_id: int, db: Database = Depends(get_db)):
-    """Obtener una nómina por ID"""
+async def obtener_nomina(
+    nomina_id: int,
+    current_user: dict = Depends(get_current_active_user),
+    db: Database = Depends(get_db)
+):
+    """Obtener una nómina por ID - Con restricciones según rol"""
     try:
         nomina = db.fetch_one("""
-            SELECT n.*, e.nombre || ' ' || e.apellido as nombre_empleado
+            SELECT n.*, e.nombre || ' ' || e.apellido as nombre_empleado, n.id_empleado
             FROM Nomina n
             JOIN Empleados e ON n.id_empleado = e.id_empleado
             WHERE n.id_nomina = ?
@@ -3067,6 +3457,14 @@ async def obtener_nomina(nomina_id: int, db: Database = Depends(get_db)):
         
         if not nomina:
             raise HTTPException(status_code=404, detail=f"Nómina con ID {nomina_id} no encontrada")
+        
+        # Verificar permisos de acceso a esta nómina específica
+        empleado_id = nomina.get('id_empleado')
+        if not can_view_nomina(current_user, empleado_id, db):
+            raise HTTPException(
+                status_code=403,
+                detail="No tiene permisos para ver esta nómina"
+            )
         
         # Obtener detalles
         bonificaciones = db.fetch_all(
@@ -3087,13 +3485,20 @@ async def obtener_nomina(nomina_id: int, db: Database = Depends(get_db)):
         raise HTTPException(status_code=500, detail=f"Error al obtener nómina: {str(e)}")
 
 @app.post("/api/nomina", response_model=dict, status_code=201)
-async def crear_nomina(nomina: NominaCreate, db: Database = Depends(get_db)):
-    """Crear una nueva nómina"""
+async def crear_nomina(
+    nomina: NominaCreate,
+    current_user: dict = Depends(require_gerente_or_above),
+    db: Database = Depends(get_db)
+):
+    """Crear una nueva nómina - Solo Gerente y Super Admin"""
     try:
         # Verificar que el empleado existe
         empleado = db.fetch_one("SELECT id_empleado FROM Empleados WHERE id_empleado = ?", (nomina.id_empleado,))
         if not empleado:
             raise HTTPException(status_code=400, detail=f"Empleado con ID {nomina.id_empleado} no encontrado")
+        
+        # Obtener nombre del empleado
+        nombre_empleado = get_empleado_nombre_by_id(db, nomina.id_empleado)
         
         # Calcular periodo
         periodo = f"{nomina.mes:02d}/{nomina.anio}"
@@ -3105,11 +3510,11 @@ async def crear_nomina(nomina: NominaCreate, db: Database = Depends(get_db)):
         
         # Insertar nómina
         cursor = db.execute_query("""
-            INSERT INTO Nomina (id_empleado, mes, anio, periodo, salario_base, total_bonificaciones, 
+            INSERT INTO Nomina (id_empleado, nombre_empleado, mes, anio, periodo, salario_base, total_bonificaciones, 
                               total_deducciones, salario_neto, fecha_pago, estado, observaciones)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
-            nomina.id_empleado, nomina.mes, nomina.anio, periodo,
+            nomina.id_empleado, nombre_empleado, nomina.mes, nomina.anio, periodo,
             nomina.salario_base, total_bonificaciones, total_deducciones,
             salario_neto, nomina.fecha_pago, 'pendiente', nomina.observaciones
         ))
@@ -3146,7 +3551,7 @@ async def crear_nomina(nomina: NominaCreate, db: Database = Depends(get_db)):
             # Si falla el JOIN, obtener sin nombre de empleado
             try:
                 nueva_nomina = db.fetch_one("""
-                    SELECT n.*, 'Empleado ID: ' || n.id_empleado as nombre_empleado
+                    SELECT n.*
                     FROM Nomina n
                     WHERE n.id_nomina = ?
                 """, (nomina_id,))
@@ -3155,8 +3560,8 @@ async def crear_nomina(nomina: NominaCreate, db: Database = Depends(get_db)):
                 nueva_nomina = db.fetch_one("""
                     SELECT * FROM Nomina WHERE id_nomina = ?
                 """, (nomina_id,))
-                if nueva_nomina:
-                    nueva_nomina['nombre_empleado'] = f"Empleado ID: {nomina.id_empleado}"
+            if nueva_nomina:
+                nueva_nomina['nombre_empleado'] = get_empleado_nombre_by_id(db, nomina.id_empleado)
         
         return {"success": True, "message": "Nómina creada exitosamente", "data": nueva_nomina}
     except HTTPException:
@@ -3166,9 +3571,19 @@ async def crear_nomina(nomina: NominaCreate, db: Database = Depends(get_db)):
         raise HTTPException(status_code=500, detail=f"Error al crear nómina: {str(e)}")
 
 @app.get("/api/nomina/empleado/{empleado_id}/historial", response_model=dict)
-async def historial_empleado(empleado_id: int, db: Database = Depends(get_db)):
-    """Obtener historial de nóminas de un empleado con manejo robusto"""
+async def historial_empleado(
+    empleado_id: int,
+    current_user: dict = Depends(get_current_active_user),
+    db: Database = Depends(get_db)
+):
+    """Obtener historial de nóminas de un empleado - Con restricciones según rol"""
     try:
+        # Verificar permisos de acceso a nómina de este empleado
+        if not can_view_nomina(current_user, empleado_id, db):
+            raise HTTPException(
+                status_code=403,
+                detail="No tiene permisos para ver el historial de nómina de este empleado"
+            )
         nominas = []
         
         # Intentar con JOIN primero
@@ -3185,11 +3600,14 @@ async def historial_empleado(empleado_id: int, db: Database = Depends(get_db)):
             # Si falla, intentar sin JOIN
             try:
                 nominas = db.fetch_all("""
-                    SELECT n.*, 'Empleado ID: ' || n.id_empleado as nombre_empleado
+                    SELECT n.*
                     FROM Nomina n
                     WHERE n.id_empleado = ?
                     ORDER BY n.anio DESC, n.mes DESC
                 """, (empleado_id,))
+                # Agregar nombre de empleado a cada nómina
+                for nom in nominas:
+                    nom['nombre_empleado'] = get_empleado_nombre_by_id(db, empleado_id)
             except Exception:
                 nominas = []
         
@@ -3243,7 +3661,7 @@ async def listar_vacaciones(
             
             try:
                 query = """
-                    SELECT v.*, 'Empleado ID: ' || v.id_empleado as nombre_empleado
+                    SELECT v.*
                     FROM Vacaciones_Permisos v
                     WHERE 1=1
                 """
@@ -3258,6 +3676,9 @@ async def listar_vacaciones(
                 query += " ORDER BY v.fecha_solicitud DESC"
                 
                 vacaciones = db.fetch_all(query, tuple(params))
+                # Agregar nombre de empleado a cada vacación
+                for vacacion in vacaciones:
+                    vacacion['nombre_empleado'] = get_empleado_nombre_by_id(db, vacacion.get('id_empleado', 0))
             except Exception as fallback_error:
                 logger.error(f"Error al consultar vacaciones sin JOIN: {str(fallback_error)}")
                 # Si la tabla no existe, retornar lista vacía
@@ -3279,18 +3700,77 @@ async def listar_vacaciones(
             detail=f"Error al obtener vacaciones: {str(e)}"
         )
 
+def verificar_y_agregar_columna_vacaciones(db: Database, nombre_columna: str, tipo_columna: str):
+    """Verifica si una columna existe en Vacaciones_Permisos y la agrega si falta"""
+    try:
+        # Asegurar conexión activa
+        if not db.connection:
+            db.connect()
+        else:
+            try:
+                db.connection.execute("SELECT 1")
+            except (sqlite3.Error, AttributeError):
+                db.connect()
+        
+        # Verificar si la columna existe
+        cursor = db.connection.cursor()
+        cursor.execute("PRAGMA table_info(Vacaciones_Permisos)")
+        columnas = [col[1] for col in cursor.fetchall()]
+        
+        if nombre_columna not in columnas:
+            logger.info(f"Agregando columna {nombre_columna} a Vacaciones_Permisos")
+            db.execute_query(f"ALTER TABLE Vacaciones_Permisos ADD COLUMN {nombre_columna} {tipo_columna}")
+            logger.info(f"Columna {nombre_columna} agregada exitosamente")
+    except Exception as e:
+        logger.warning(f"Error al verificar/agregar columna {nombre_columna}: {e}")
+
 @app.post("/api/vacaciones", response_model=dict, status_code=201)
 async def crear_vacacion(vacacion: VacacionPermisoCreate, db: Database = Depends(get_db)):
     """Crear una solicitud de vacaciones o permiso"""
     try:
-        cursor = db.execute_query("""
-            INSERT INTO Vacaciones_Permisos 
-            (id_empleado, tipo, fecha_inicio, fecha_fin, dias_solicitados, motivo, estado)
-            VALUES (?, ?, ?, ?, ?, ?, 'pendiente')
-        """, (
-            vacacion.id_empleado, vacacion.tipo, vacacion.fecha_inicio,
-            vacacion.fecha_fin, vacacion.dias_solicitados, vacacion.motivo
-        ))
+        # Verificar y agregar columna dias_solicitados si no existe
+        verificar_y_agregar_columna_vacaciones(db, "dias_solicitados", "INTEGER")
+        
+        # Calcular días solicitados a partir de las fechas
+        fecha_inicio = datetime.strptime(vacacion.fecha_inicio, "%Y-%m-%d").date()
+        fecha_fin = datetime.strptime(vacacion.fecha_fin, "%Y-%m-%d").date()
+        dias_solicitados = (fecha_fin - fecha_inicio).days + 1  # +1 para incluir ambos días
+        
+        # Verificar si la columna motivo existe, si no usar observaciones
+        if not db.connection:
+            db.connect()
+        else:
+            try:
+                db.connection.execute("SELECT 1")
+            except (sqlite3.Error, AttributeError):
+                db.connect()
+        
+        # Obtener nombre del empleado
+        nombre_empleado = get_empleado_nombre_by_id(db, vacacion.id_empleado)
+        
+        cursor = db.connection.cursor()
+        cursor.execute("PRAGMA table_info(Vacaciones_Permisos)")
+        columnas = [col[1] for col in cursor.fetchall()]
+        
+        if "motivo" in columnas:
+            cursor = db.execute_query("""
+                INSERT INTO Vacaciones_Permisos 
+                (id_empleado, nombre_empleado, tipo, fecha_inicio, fecha_fin, dias_solicitados, motivo, estado)
+                VALUES (?, ?, ?, ?, ?, ?, ?, 'pendiente')
+            """, (
+                vacacion.id_empleado, nombre_empleado, vacacion.tipo, vacacion.fecha_inicio,
+                vacacion.fecha_fin, dias_solicitados, vacacion.motivo
+            ))
+        else:
+            # Si no existe motivo, usar observaciones
+            cursor = db.execute_query("""
+                INSERT INTO Vacaciones_Permisos 
+                (id_empleado, nombre_empleado, tipo, fecha_inicio, fecha_fin, dias_solicitados, observaciones, estado)
+                VALUES (?, ?, ?, ?, ?, ?, ?, 'pendiente')
+            """, (
+                vacacion.id_empleado, nombre_empleado, vacacion.tipo, vacacion.fecha_inicio,
+                vacacion.fecha_fin, dias_solicitados, vacacion.motivo or vacacion.observaciones
+            ))
         
         # Obtener vacación creada con manejo robusto
         nueva_vacacion = None
@@ -3306,17 +3786,19 @@ async def crear_vacacion(vacacion: VacacionPermisoCreate, db: Database = Depends
             # Si falla el JOIN, obtener sin nombre de empleado
             try:
                 nueva_vacacion = db.fetch_one("""
-                    SELECT v.*, 'Empleado ID: ' || v.id_empleado as nombre_empleado
+                    SELECT v.*
                     FROM Vacaciones_Permisos v
                     WHERE v.id_permiso = ?
                 """, (cursor.lastrowid,))
+                if nueva_vacacion:
+                    nueva_vacacion['nombre_empleado'] = get_empleado_nombre_by_id(db, vacacion.id_empleado)
             except Exception:
                 # Si todo falla, obtener solo la vacación
                 nueva_vacacion = db.fetch_one("""
                     SELECT * FROM Vacaciones_Permisos WHERE id_permiso = ?
                 """, (cursor.lastrowid,))
                 if nueva_vacacion:
-                    nueva_vacacion['nombre_empleado'] = f"Empleado ID: {vacacion.id_empleado}"
+                    nueva_vacacion['nombre_empleado'] = get_empleado_nombre_by_id(db, vacacion.id_empleado)
         
         # Notificar a supervisores y RRHH
         try:
@@ -3387,8 +3869,7 @@ async def listar_documentos(
             try:
                 query = """
                     SELECT 
-                        d.*,
-                        'Empleado ID: ' || d.id_empleado as nombre_empleado
+                        d.*
                     FROM Documentos d
                     WHERE 1=1
                 """
@@ -3403,6 +3884,9 @@ async def listar_documentos(
                 query += " ORDER BY d.fecha_subida DESC"
                 
                 documentos = db.fetch_all(query, tuple(params))
+                # Agregar nombre de empleado a cada documento
+                for documento in documentos:
+                    documento['nombre_empleado'] = get_empleado_nombre_by_id(db, documento.get('id_empleado', 0))
             except Exception as fallback_error:
                 logger.error(f"Error al consultar documentos sin JOIN: {str(fallback_error)}")
                 # Si la tabla no existe, retornar lista vacía
@@ -3481,9 +3965,9 @@ async def listar_capacitaciones(
                         capacitaciones = db.fetch_all(
                             "SELECT * FROM Capacitaciones ORDER BY fecha_inicio DESC"
                         )
-                    # Agregar nombre de empleado como campo vacío
+                    # Agregar nombre de empleado
                     for cap in capacitaciones:
-                        cap['nombre_empleado'] = f"Empleado ID: {cap['id_empleado']}"
+                        cap['nombre_empleado'] = get_empleado_nombre_by_id(db, cap.get('id_empleado', 0))
                 except Exception:
                     capacitaciones = []
         
@@ -3527,7 +4011,7 @@ async def obtener_capacitacion(capacitacion_id: int, db: Database = Depends(get_
                     (capacitacion_id,)
                 )
                 if capacitacion:
-                    capacitacion['nombre_empleado'] = f"Empleado ID: {capacitacion['id_empleado']}"
+                    capacitacion['nombre_empleado'] = get_empleado_nombre_by_id(db, capacitacion.get('id_empleado', 0))
             except Exception:
                 capacitacion = None
         
@@ -3570,12 +4054,16 @@ async def crear_capacitacion(capacitacion: CapacitacionCreate, db: Database = De
                 detail=f"Empleado con ID {capacitacion.id_empleado} no encontrado"
             )
         
+        # Obtener nombre del empleado
+        nombre_empleado = f"{empleado['nombre']} {empleado['apellido']}"
+        
         # Insertar la capacitación
         cursor = db.execute_query("""
-            INSERT INTO Capacitaciones (id_empleado, nombre_curso, institucion, fecha_inicio, fecha_fin, certificado)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO Capacitaciones (id_empleado, nombre_empleado, nombre_curso, institucion, fecha_inicio, fecha_fin, certificado)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
         """, (
             capacitacion.id_empleado,
+            nombre_empleado,
             capacitacion.nombre_curso,
             capacitacion.institucion,
             capacitacion.fecha_inicio,
@@ -3830,7 +4318,7 @@ async def listar_evaluaciones(
                     
                     # Agregar nombre de empleado como campo
                     for ev in evaluaciones:
-                        ev['nombre_empleado'] = f"Empleado ID: {ev['id_empleado']}"
+                        ev['nombre_empleado'] = get_empleado_nombre_by_id(db, ev.get('id_empleado', 0))
                 except Exception:
                     evaluaciones = []
         
@@ -3876,7 +4364,7 @@ async def obtener_evaluacion(evaluacion_id: int, db: Database = Depends(get_db))
                     (evaluacion_id,)
                 )
                 if evaluacion:
-                    evaluacion['nombre_empleado'] = f"Empleado ID: {evaluacion['id_empleado']}"
+                    evaluacion['nombre_empleado'] = get_empleado_nombre_by_id(db, evaluacion.get('id_empleado', 0))
             except Exception:
                 evaluacion = None
         
@@ -3926,12 +4414,16 @@ async def crear_evaluacion(evaluacion: EvaluacionCreate, db: Database = Depends(
                 detail="El puntaje debe estar entre 0 y 100"
             )
         
+        # Obtener nombre del empleado
+        nombre_empleado = f"{empleado['nombre']} {empleado['apellido']}"
+        
         # Insertar la evaluación
         cursor = db.execute_query("""
-            INSERT INTO Evaluaciones (id_empleado, fecha, evaluador, puntaje, observaciones)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO Evaluaciones (id_empleado, nombre_empleado, fecha, evaluador, puntaje, observaciones)
+            VALUES (?, ?, ?, ?, ?, ?)
         """, (
             evaluacion.id_empleado,
+            nombre_empleado,
             evaluacion.fecha,
             evaluacion.evaluador,
             evaluacion.puntaje,
@@ -4661,9 +5153,27 @@ async def export_attendance_excel(reporte: AsistenciaReporteRequest, db: Databas
         raise HTTPException(status_code=500, detail=f"Error al exportar: {str(e)}")
 
 @app.get("/api/reportes/nomina/export/pdf")
-async def export_payroll_pdf(mes: int, anio: int, db: Database = Depends(get_db)):
-    """Exportar reporte de nómina a PDF"""
+async def export_payroll_pdf(
+    mes: int,
+    anio: int,
+    current_user: dict = Depends(get_current_active_user),
+    db: Database = Depends(get_db)
+):
+    """Exportar reporte de nómina a PDF - Con restricciones según rol"""
     try:
+        # Verificar permisos de exportación
+        if is_consulta(current_user):
+            raise HTTPException(
+                status_code=403,
+                detail="El rol Consulta no puede exportar datos"
+            )
+        
+        # Solo Gerente y Super Admin pueden exportar nómina general
+        if not (is_super_admin(current_user) or is_gerente(current_user)):
+            raise HTTPException(
+                status_code=403,
+                detail="Solo Gerente y Super Admin pueden exportar reportes de nómina"
+            )
         from fastapi.responses import StreamingResponse
         
         nominas = db.fetch_all("""
@@ -4699,9 +5209,28 @@ async def export_payroll_pdf(mes: int, anio: int, db: Database = Depends(get_db)
         raise HTTPException(status_code=500, detail=f"Error al exportar: {str(e)}")
 
 @app.get("/api/reportes/nomina/export/excel")
-async def export_payroll_excel(mes: int, anio: int, db: Database = Depends(get_db)):
-    """Exportar reporte de nómina a Excel"""
+async def export_payroll_excel(
+    mes: int,
+    anio: int,
+    current_user: dict = Depends(get_current_active_user),
+    db: Database = Depends(get_db)
+):
+    """Exportar reporte de nómina a Excel - Con restricciones según rol"""
     try:
+        # Verificar permisos de exportación
+        if is_consulta(current_user):
+            raise HTTPException(
+                status_code=403,
+                detail="El rol Consulta no puede exportar datos"
+            )
+        
+        # Solo Gerente y Super Admin pueden exportar nómina general
+        if not (is_super_admin(current_user) or is_gerente(current_user)):
+            raise HTTPException(
+                status_code=403,
+                detail="Solo Gerente y Super Admin pueden exportar reportes de nómina"
+            )
+        
         from fastapi.responses import StreamingResponse
         
         nominas = db.fetch_all("""

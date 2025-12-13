@@ -1,7 +1,7 @@
 """
 Modelos Pydantic para validación de datos
 """
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, validator, model_validator
 from typing import Optional
 from datetime import datetime
 
@@ -298,20 +298,47 @@ class ContratoUpdate(BaseModel):
 
 # Modelo para crear/registrar una asistencia
 class AsistenciaCreate(BaseModel):
-    id_empleado: int = Field(..., description="ID del empleado")
+    # Aceptar ambos nombres: empleado_id o id_empleado
+    empleado_id: Optional[int] = Field(None, description="ID del empleado (alias)")
+    id_empleado: Optional[int] = Field(None, description="ID del empleado")
     fecha: str = Field(..., description="Fecha de la asistencia (YYYY-MM-DD)")
     hora_entrada: Optional[str] = Field(None, description="Hora de entrada (HH:MM:SS)")
     hora_salida: Optional[str] = Field(None, description="Hora de salida (HH:MM:SS)")
+    estado: Optional[str] = Field("presente", description="Estado de la asistencia (presente, ausente, etc.)")
     observaciones: Optional[str] = Field(None, description="Justificaciones u observaciones")
     metodo_registro: Optional[str] = Field("manual", description="Método de registro: manual o biometrico")
+    
+    @model_validator(mode='before')
+    @classmethod
+    def validate_empleado_id(cls, values):
+        """Asegurar que al menos uno de los campos de empleado esté presente"""
+        if isinstance(values, dict):
+            empleado_id = values.get('empleado_id')
+            id_empleado = values.get('id_empleado')
+            
+            if empleado_id is None and id_empleado is None:
+                raise ValueError('Se requiere id_empleado o empleado_id')
+            
+            # Normalizar: asegurar que ambos campos tengan el valor
+            final_id = empleado_id if empleado_id is not None else id_empleado
+            if final_id is not None:
+                values['empleado_id'] = final_id
+                values['id_empleado'] = final_id
+        
+        return values
+    
+    def get_empleado_id(self) -> int:
+        """Obtener el ID del empleado sin importar el nombre del campo"""
+        return self.id_empleado or self.empleado_id
     
     class Config:
         json_schema_extra = {
             "example": {
-                "id_empleado": 1,
+                "empleado_id": 1,
                 "fecha": "2025-01-15",
                 "hora_entrada": "08:00:00",
                 "hora_salida": "17:00:00",
+                "estado": "presente",
                 "observaciones": "Llegada puntual",
                 "metodo_registro": "manual"
             }
@@ -321,6 +348,7 @@ class AsistenciaCreate(BaseModel):
 class AsistenciaUpdate(BaseModel):
     hora_entrada: Optional[str] = None
     hora_salida: Optional[str] = None
+    estado: Optional[str] = None
     observaciones: Optional[str] = None
 
 # Modelo para reporte de asistencias por rango de fechas

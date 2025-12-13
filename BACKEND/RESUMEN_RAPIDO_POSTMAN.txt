@@ -1,0 +1,52 @@
+═══════════════════════════════════════════════════════════════
+  SOLUCIÓN RÁPIDA PARA EL ERROR 403 EN POSTMAN
+═══════════════════════════════════════════════════════════════
+
+PROBLEMA:
+  GET /api/usuarios devuelve: 403 "Not authenticated"
+  
+SOLUCIÓN EN 2 PASOS:
+
+═══════════════════════════════════════════════════════════════
+PASO 1: HACER LOGIN Y OBTENER TOKEN
+═══════════════════════════════════════════════════════════════
+
+En Postman, crea una nueva petición:
+
+  Método: POST
+  URL: http://localhost:8000/api/usuarios/login
+  
+  Body (pestaña Body → raw → JSON):
+  {
+    "email": "admin@rrhh.com",
+    "password": "admin123"
+  }
+  
+  Click en "Send"
+  
+  ⚠️ IMPORTANTE: Copia el valor de "access_token" de la respuesta
+
+═══════════════════════════════════════════════════════════════
+PASO 2: AGREGAR TOKEN A TU PETICIÓN GET
+═══════════════════════════════════════════════════════════════
+
+En tu petición GET /api/usuarios:
+
+1. Ve a la pestaña "Authorization"
+2. Type: Selecciona "Bearer Token"
+3. Token: Pega el access_token que copiaste
+4. Click en "Send"
+
+✅ LISTO! Ahora debería funcionar.
+
+═══════════════════════════════════════════════════════════════
+NOTAS:
+═══════════════════════════════════════════════════════════════
+
+- Los tokens expiran después de 24 horas. Si falla, haz login otra vez.
+- Tu usuario debe tener rol "administrador" o "super admin"
+- Las peticiones GET no deben llevar Body (JSON)
+- Si el servidor no responde, ejecuta: python main.py en la carpeta BACKEND
+
+═══════════════════════════════════════════════════════════════
+
